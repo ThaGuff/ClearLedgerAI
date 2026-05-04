@@ -9,15 +9,19 @@ Upload Excel, OFX, or QFX statements → get instant insights, a 0–100 financi
 
 ## ✨ Features
 
-- 📥 Multi-file upload: `.xlsx`, `.xls`, `.ofx`, `.qbo`, `.qfx`
-- 🔍 Auto-detects Date / Amount / Payee columns in Excel
-- 📊 Dashboard: Income · Expenses · Net · Balance
-- 📈 Monthly cashflow line chart
-- 🔝 Top 10 expenses bar chart
-- 🧾 Recent transactions table
-- 🏥 Financial Health Score (Expense Ratio · Savings · Stability · Runway)
-- 💡 Tiered advice engine (CRITICAL / FAIR / GOOD)
-- ⬇️ CSV export
+- 📥 Multi-file upload: `.xlsx`, `.xls`, **`.csv`**, `.ofx`, `.qbo`, `.qfx`
+- 🔍 Auto-detects Date / Amount / Payee (and Debit/Credit) columns
+- 🏷️ **Auto-categorization** of transactions (16 categories)
+- 🔁 **Subscription / recurring detector** + cancellation simulator
+- 📊 **Interactive Plotly dashboards** — drill from category → merchant → transaction
+- 📈 Monthly income/expense/net trend bars + line
+- 🥧 Spending pie · 🔝 top merchants · 🌳 treemap drill-down
+- 📅 Day-of-week × week spending heatmap
+- 🏥 Financial Health Score with **deep per-component reasoning**
+- 💡 Insights engine: anomalies, category dominance, day-of-week patterns
+- 🤖 **AI Coach** powered by Claude (set `ANTHROPIC_API_KEY`) with rule-based fallback
+- 🔎 Filters: date range · source · category · payee search
+- ⬇️ Filtered CSV export
 - 🌙 Plex Automation dark theme
 - 🔌 Stripe + GoHighLevel webhook hooks ready
 
