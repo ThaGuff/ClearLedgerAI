@@ -825,6 +825,11 @@ def build_insights(df: pd.DataFrame, subs: pd.DataFrame, health: dict) -> list[d
 # ============================================================
 OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:latest")
+# Headers required for free-tier ngrok tunnels (skip the browser interstitial)
+_OLLAMA_HEADERS = {
+    "ngrok-skip-browser-warning": "true",
+    "User-Agent": "ClearLedgerAI/1.0",
+}
 
 
 def ai_coach_narrative(df: pd.DataFrame, subs: pd.DataFrame, health: dict) -> str:
@@ -849,6 +854,7 @@ def ai_coach_narrative(df: pd.DataFrame, subs: pd.DataFrame, health: dict) -> st
             f"{OLLAMA_URL}/api/generate",
             json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
                   "options": {"temperature": 0.4, "num_predict": 900}},
+            headers=_OLLAMA_HEADERS,
             timeout=int(os.environ.get("OLLAMA_TIMEOUT", "300")),
         )
         r.raise_for_status()
@@ -1383,7 +1389,7 @@ with tab_coach:
     ollama_ok = False
     ollama_err = ""
     try:
-        _r = requests.get(f"{OLLAMA_URL}/api/tags", timeout=2)
+        _r = requests.get(f"{OLLAMA_URL}/api/tags", headers=_OLLAMA_HEADERS, timeout=3)
         ollama_ok = _r.status_code == 200
     except Exception as _e:
         ollama_err = str(_e)
