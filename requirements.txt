@@ -6,4 +6,3 @@ xlrd==2.0.1
 ofxparse==0.21
 plotly==5.24.1
 requests==2.32.3
-anthropic==0.39.0

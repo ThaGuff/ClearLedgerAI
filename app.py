@@ -17,6 +17,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
+import requests
 import streamlit as st
 
 # ============================================================
@@ -822,8 +823,11 @@ def build_insights(df: pd.DataFrame, subs: pd.DataFrame, health: dict) -> list[d
 # ============================================================
 # AI Coach
 # ============================================================
+OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:latest")
+
+
 def ai_coach_narrative(df: pd.DataFrame, subs: pd.DataFrame, health: dict) -> str:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
     m = health["metrics"]
     cats = df[df["amount"] < 0].groupby("category")["amount"].sum().abs().sort_values(ascending=False).head(5)
     summary = {
@@ -835,29 +839,32 @@ def ai_coach_narrative(df: pd.DataFrame, subs: pd.DataFrame, health: dict) -> st
         "top_categories": {k: round(float(v),2) for k,v in cats.to_dict().items()},
         "subscription_monthly": round(float(subs["Annual Cost"].sum())/12,2) if not subs.empty else 0,
     }
-    if api_key:
-        try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=api_key)
-            msg = client.messages.create(
-                model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
-                max_tokens=900,
-                messages=[{"role":"user","content":
-                    "You are a CFP-level money coach. Given this JSON, write a punchy markdown coaching memo "
-                    "(≤350 words) with sections: **Where you stand**, **Top 3 wins this month**, **Risks**, "
-                    f"**90-day game plan**. Use concrete dollar figures.\n\nData: {summary}"}],
-            )
-            return msg.content[0].text
-        except Exception as e:
-            return _fallback_narrative(summary, str(e))
-    return _fallback_narrative(summary)
+    prompt = (
+        "You are a CFP-level money coach. Given this JSON, write a punchy markdown coaching memo "
+        "(≤350 words) with sections: **Where you stand**, **Top 3 wins this month**, **Risks**, "
+        f"**90-day game plan**. Use concrete dollar figures.\n\nData: {summary}"
+    )
+    try:
+        r = requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
+                  "options": {"temperature": 0.4, "num_predict": 900}},
+            timeout=int(os.environ.get("OLLAMA_TIMEOUT", "300")),
+        )
+        r.raise_for_status()
+        text = r.json().get("response", "").strip()
+        if text:
+            return text
+        return _fallback_narrative(summary, "Empty Ollama response")
+    except Exception as e:
+        return _fallback_narrative(summary, f"Ollama unreachable at {OLLAMA_URL} — {e}")
 
 
 def _fallback_narrative(s: dict, err: Optional[str] = None) -> str:
     band, _ = score_band(s["score"])
     sr, er = s["savings_rate_pct"], s["expense_ratio_pct"]
     top = list(s["top_categories"].items())[:3]
-    note = f"\n\n_Set `ANTHROPIC_API_KEY` env var on Railway to unlock the live AI coach{f' — {err}' if err else ''}._"
+    note = f"\n\n_AI coach offline — using rule-based memo{f' ({err})' if err else ''}. Set `OLLAMA_URL` (default `http://localhost:11434`) and `OLLAMA_MODEL` (default `llama3.1:8b`) to enable live coaching._"
     lines = [
         f"### {band} · Score {s['score']}/100", "",
         "**Where you stand**",
@@ -1372,12 +1379,29 @@ with tab_insights:
 
 # ---------- AI COACH ----------
 with tab_coach:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    # Probe Ollama health quickly
+    ollama_ok = False
+    ollama_err = ""
+    try:
+        _r = requests.get(f"{OLLAMA_URL}/api/tags", timeout=2)
+        ollama_ok = _r.status_code == 200
+    except Exception as _e:
+        ollama_err = str(_e)
+    if ollama_ok:
+        st.markdown(
+            f"<div class='insight-card success'>"
+            f"<h4>🟢 Ollama connected</h4>"
+            f"Model: <code>{OLLAMA_MODEL}</code> · Endpoint: <code>{OLLAMA_URL}</code>"
+            "</div>", unsafe_allow_html=True,
+        )
+    else:
         st.markdown(
             f"<div class='insight-card info'>"
-            f"<h4>Activate live AI coach</h4>"
-            f"Set <code>ANTHROPIC_API_KEY</code> in Railway → Variables to unlock real-time "
-            "Claude-powered coaching. Showing rule-based memo below."
+            f"<h4>Ollama not reachable</h4>"
+            f"Tried <code>{OLLAMA_URL}</code>. Set <code>OLLAMA_URL</code> + <code>OLLAMA_MODEL</code> "
+            f"in Railway → Variables (e.g. <code>http://host.docker.internal:11434</code> for local, "
+            f"or your tunneled ngrok URL). Showing rule-based memo below."
+            f"{f'<br><small>{ollama_err}</small>' if ollama_err else ''}"
             "</div>", unsafe_allow_html=True,
         )
     if st.button("Generate coaching memo", type="primary"):
