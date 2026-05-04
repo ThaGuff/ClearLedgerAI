@@ -336,6 +336,12 @@ DEBIT_HINTS = ["debit", "withdrawal", "withdrawals", "money out", "outflow", "sp
 CREDIT_HINTS = ["credit", "deposit", "deposits", "money in", "inflow"]
 PAYEE_HINTS = ["description", "payee", "merchant", "name", "memo", "details",
                "transaction description", "narration", "particulars"]
+TYPE_HINTS  = ["transaction type", "trans type", "type", "dr/cr", "debit/credit",
+               "credit/debit", "txn type"]
+DEBIT_TYPE_TOKENS  = {"debit", "withdrawal", "dr", "purchase", "payment", "fee",
+                       "charge", "outflow", "out", "expense", "spend", "sale"}
+CREDIT_TYPE_TOKENS = {"credit", "deposit", "cr", "refund", "interest", "inflow",
+                       "in", "income", "salary", "payroll"}
 
 
 def _clean_amount(v) -> Optional[float]:
@@ -385,18 +391,32 @@ def _frame_from_tabular(raw: pd.DataFrame, source_name: str) -> tuple[pd.DataFra
     debit_c = _detect_col(cols, DEBIT_HINTS)
     credit_c = _detect_col(cols, CREDIT_HINTS)
     payee_c = _detect_col(cols, PAYEE_HINTS)
+    type_c  = _detect_col(cols, TYPE_HINTS)
+    # Don't double-count: if AMOUNT was matched, ignore Debit/Credit single-word matches
+    if amt_c:
+        if debit_c == amt_c: debit_c = None
+        if credit_c == amt_c: credit_c = None
 
     meta = {"columns": cols, "date_col": date_c, "amount_col": amt_c,
-            "debit_col": debit_c, "credit_col": credit_c, "payee_col": payee_c}
+            "debit_col": debit_c, "credit_col": credit_c, "payee_col": payee_c,
+            "type_col": type_c}
 
     if not date_c:
         raise ValueError(f"No Date column detected. Columns found: {cols}")
 
     if amt_c:
         amount = _clean_amount_series(raw[amt_c])
+        # If amounts are positive-only AND a Type column exists, apply sign by type
+        non_null = amount.dropna()
+        if len(non_null) > 0 and type_c and (non_null >= 0).all():
+            t = raw[type_c].astype(str).str.lower().str.strip()
+            sign = pd.Series(1.0, index=amount.index)
+            sign[t.apply(lambda x: any(tok in x for tok in DEBIT_TYPE_TOKENS))] = -1.0
+            amount = amount.abs() * sign
+            meta["sign_applied_from_type"] = True
     elif debit_c or credit_c:
-        deb = _clean_amount_series(raw[debit_c]).fillna(0) if debit_c else 0
-        cre = _clean_amount_series(raw[credit_c]).fillna(0) if credit_c else 0
+        deb = _clean_amount_series(raw[debit_c]).fillna(0).abs() if debit_c else 0
+        cre = _clean_amount_series(raw[credit_c]).fillna(0).abs() if credit_c else 0
         amount = cre - deb
     else:
         raise ValueError(f"No Amount/Debit/Credit column detected. Columns: {cols}")
@@ -614,18 +634,18 @@ def _normalize(s: str) -> str:
 
 
 def categorize(payee: str, amount: float) -> str:
+    """Categorize by payee keywords first; sign only used as a tiebreaker."""
     p = _normalize(payee)
-    if amount > 0:
-        for cat, kw in CATEGORY_RULES:
-            if cat == "Income" and any(k in p for k in kw):
-                return "Income"
-        if any(k in p for k in ["transfer","zelle","venmo","cash app","paypal"]):
-            return "Transfers"
-        return "Income"
+    # 1) Try keyword match across ALL categories (sign-agnostic)
     for cat, kw in CATEGORY_RULES:
-        if cat == "Income": continue
         if any(k in p for k in kw):
+            # Don't tag a clear outflow as Income just because keyword overlaps
+            if cat == "Income" and amount < 0:
+                continue
             return cat
+    # 2) No keyword hit — use sign as last resort
+    if amount > 0:
+        return "Income (unverified)"
     return "Other"
 
 
