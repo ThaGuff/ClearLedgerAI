@@ -1,6 +1,6 @@
 """
-ClearLedger AI · AI Money Coach
-Powered by Plex Automation
+Iron Star Ledger · Powered by PLEX Automation
+Interstellar finance navigator — real cashflow, AI coach, plasma-grade insights.
 """
 
 from __future__ import annotations
@@ -21,69 +21,88 @@ import requests
 import streamlit as st
 
 # ============================================================
-# Forest-green palette (clean banking / wealth-management feel)
+# IRON STAR LEDGER — Interstellar palette
+# Deep-space background, neon cosmic accents, brushed-iron texture
 # ============================================================
-PRIMARY    = "#0E3B2E"      # Forest Green — primary text, CTAs, key data
-SECONDARY  = "#1F6F54"      # Sage — accents, charts
-SURFACE    = "#D7E7DD"      # Pale Mint — cards, secondary surfaces
-NEUTRAL    = "#F6FBF7"      # Soft White — page background
-ALERT      = "#EF4444"      # Coral Red — negatives / warnings
+DEEP_SPACE   = "#05060F"    # void — page background
+SPACE_DARK   = "#0B0E20"    # nebula floor — sidebar, deep panels
+PANEL_BG     = "#11152B"    # cards / metric tiles (slightly lifted)
+PANEL_HI     = "#1A1F3D"    # hover lift
+NEBULA_PUR   = "#7C3AED"    # primary — purple stellar dust
+NEBULA_HI    = "#A78BFA"    # primary glow
+COSMIC_CYAN  = "#22D3EE"    # secondary — accent, charts, active state
+CYAN_HI      = "#67E8F9"    # cyan glow
+STAR_GOLD    = "#FBBF24"    # tertiary — warning / highlight
+PLASMA_PINK  = "#F472B6"    # negative
+PLASMA_RED   = "#F43F5E"    # alert
+IRON_STEEL   = "#64748B"    # brushed metal — borders, muted text
+STELLAR_WHT  = "#F1F5F9"    # primary text (off-white, no eye-burn)
+NEBULA_DIM   = "#94A3B8"    # secondary text
+COSMIC_DUST  = "#475569"    # tertiary text / scrollbar
 
-# Derived shades
-PRIMARY_SOFT  = "#1A5742"   # primary tinted lighter for hover
-SECONDARY_HI  = "#2A8A6A"   # sage hover
-SURFACE_HI    = "#C5DDD0"   # mint hover
-SURFACE_DEEP  = "#B5CFC1"   # mint border
-TXT_MAIN   = "#0E3B2E"      # = PRIMARY
-TXT_DIM    = "#5A7A6E"      # muted forest
-TXT_MUTED  = "#8FA89E"      # very muted
-BORDER     = "#C5DDD0"      # subtle mint border
-GRID       = "#E5EFE8"      # very pale mint grid
+# Compatibility aliases — keeps the rest of the app working w/o per-line edits
+PRIMARY       = NEBULA_PUR
+PRIMARY_SOFT  = NEBULA_HI
+SECONDARY     = COSMIC_CYAN
+SECONDARY_HI  = CYAN_HI
+SURFACE       = PANEL_BG
+SURFACE_HI    = PANEL_HI
+SURFACE_DEEP  = "#1F2440"
+NEUTRAL       = DEEP_SPACE
+ALERT         = PLASMA_RED
+TXT_MAIN      = STELLAR_WHT
+TXT_DIM       = NEBULA_DIM
+TXT_MUTED     = COSMIC_DUST
+BORDER        = "#1E2545"
+GRID          = "rgba(124,58,237,0.08)"
+SUCCESS       = COSMIC_CYAN
+SUCCESS_HI    = CYAN_HI
+WARNING       = STAR_GOLD
+GOLD          = STAR_GOLD
+SKY           = "#3B82F6"
 
-# Status / chart accents
-SUCCESS    = SECONDARY      # green for positive
-SUCCESS_HI = SECONDARY_HI
-WARNING    = "#D97706"      # amber for caution (used sparingly)
-GOLD       = "#B8945A"      # warm tertiary
-SKY        = "#5BA8A0"      # complementary teal for variety
-
-# Category colorway — varied but harmonious with the green palette
+# Category colorway — neon cosmic spectrum
 CHART_PALETTE = [
-    SECONDARY,          # sage
-    PRIMARY,            # forest
-    "#4A9C7B",          # mid sage
-    GOLD,               # warm gold
-    SKY,                # teal
-    "#84BFA0",          # light sage
-    WARNING,            # amber
-    ALERT,              # coral (last resort)
+    COSMIC_CYAN,        # 1 cyan
+    NEBULA_PUR,         # 2 purple
+    STAR_GOLD,          # 3 gold
+    "#3B82F6",          # 4 stellar blue
+    PLASMA_PINK,        # 5 plasma
+    "#10B981",          # 6 emerald nebula
+    "#A78BFA",          # 7 lavender
+    "#FB923C",          # 8 solar orange
 ]
 
-# Custom Plotly template — light theme, rich interactivity
+# Custom Plotly template — deep space, neon glow, smooth transitions
 _tpl = go.layout.Template()
 _tpl.layout = go.Layout(
-    paper_bgcolor=NEUTRAL,
-    plot_bgcolor=NEUTRAL,
-    font=dict(family="Inter, ui-sans-serif, system-ui", color=PRIMARY, size=12),
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Inter, ui-sans-serif, system-ui", color=STELLAR_WHT, size=12),
     colorway=CHART_PALETTE,
-    title=dict(font=dict(color=PRIMARY, size=15, family="Inter"), x=0.01, xanchor="left"),
-    xaxis=dict(gridcolor=GRID, zerolinecolor=BORDER, linecolor=BORDER,
-               tickfont=dict(color=TXT_DIM, size=11),
-               showspikes=True, spikecolor=PRIMARY_SOFT, spikethickness=1, spikedash="dot",
-               spikemode="across"),
-    yaxis=dict(gridcolor=GRID, zerolinecolor=BORDER, linecolor=BORDER,
-               tickfont=dict(color=TXT_DIM, size=11),
-               showspikes=True, spikecolor=PRIMARY_SOFT, spikethickness=1, spikedash="dot"),
-    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=TXT_DIM, size=11),
-                bordercolor=BORDER, borderwidth=0),
-    hoverlabel=dict(bgcolor=PRIMARY, bordercolor=PRIMARY,
-                    font=dict(color=NEUTRAL, family="Inter", size=12)),
+    title=dict(font=dict(color=STELLAR_WHT, size=15, family="Inter"),
+               x=0.01, xanchor="left"),
+    xaxis=dict(gridcolor=GRID, zerolinecolor="rgba(124,58,237,0.20)",
+               linecolor=BORDER,
+               tickfont=dict(color=NEBULA_DIM, size=11),
+               showspikes=True, spikecolor=COSMIC_CYAN,
+               spikethickness=1, spikedash="dot", spikemode="across"),
+    yaxis=dict(gridcolor=GRID, zerolinecolor="rgba(124,58,237,0.20)",
+               linecolor=BORDER,
+               tickfont=dict(color=NEBULA_DIM, size=11),
+               showspikes=True, spikecolor=COSMIC_CYAN,
+               spikethickness=1, spikedash="dot"),
+    legend=dict(bgcolor="rgba(11,14,32,0.6)",
+                font=dict(color=STELLAR_WHT, size=11),
+                bordercolor=BORDER, borderwidth=1),
+    hoverlabel=dict(bgcolor=PANEL_BG, bordercolor=COSMIC_CYAN,
+                    font=dict(color=STELLAR_WHT, family="Inter", size=12)),
     hovermode="x unified",
     margin=dict(t=40, b=30, l=20, r=20),
-    transition=dict(duration=400, easing="cubic-in-out"),
+    transition=dict(duration=500, easing="cubic-in-out"),
 )
-pio.templates["clearledger"] = _tpl
-pio.templates.default = "clearledger"
+pio.templates["ironstar"] = _tpl
+pio.templates.default = "ironstar"
 
 # Categories that are *not* real spend — exclude from expense math
 NON_SPEND_CATEGORIES = {"Transfers", "Income", "Income (unverified)"}
@@ -92,279 +111,499 @@ NON_SPEND_CATEGORIES = {"Transfers", "Income", "Income (unverified)"}
 # Page config + global CSS
 # ============================================================
 st.set_page_config(
-    page_title="ClearLedger AI · Smart Money Coach",
-    page_icon="💎",
+    page_title="Iron Star Ledger · Powered by PLEX Automation",
+    page_icon="🪐",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-CARD_BG = "#FFFFFF"  # white card surface on the soft mint page
+CARD_BG = PANEL_BG  # glass panel surface on the deep-space backdrop
 
 st.markdown(
     f"""
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
+        @keyframes twinkle {{
+            0%, 100% {{ opacity: 0.85; }}
+            50%      {{ opacity: 0.35; }}
+        }}
+        @keyframes drift {{
+            from {{ transform: translateY(0); }}
+            to   {{ transform: translateY(-2000px); }}
+        }}
+        @keyframes pulseGlow {{
+            0%, 100% {{ box-shadow: 0 0 18px rgba(124,58,237,.35), 0 0 36px rgba(34,211,238,.18); }}
+            50%      {{ box-shadow: 0 0 28px rgba(124,58,237,.55), 0 0 56px rgba(34,211,238,.32); }}
+        }}
+        @keyframes shimmer {{
+            0%   {{ background-position: -200% 0; }}
+            100% {{ background-position: 200% 0; }}
+        }}
+
         html, body, [class*="st-"] {{
             font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
         }}
 
+        /* ===== Deep-space stage with nebula gradients ===== */
         .stApp {{
             background:
-                radial-gradient(ellipse 80% 50% at 50% -10%, rgba(31,111,84,.08) 0%, transparent 60%),
-                radial-gradient(ellipse 60% 40% at 90% 100%, rgba(14,59,46,.05) 0%, transparent 60%),
-                {NEUTRAL};
-            color: {TXT_MAIN};
+                radial-gradient(ellipse 70% 45% at 18% 12%, rgba(124,58,237,.32) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 82% 88%, rgba(34,211,238,.22) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 30% at 50% 50%, rgba(244,114,182,.10) 0%, transparent 70%),
+                linear-gradient(180deg, {DEEP_SPACE} 0%, {SPACE_DARK} 100%);
+            color: {STELLAR_WHT};
             background-attachment: fixed;
+            position: relative;
+            overflow-x: hidden;
         }}
-        section[data-testid="stSidebar"] {{
-            background: linear-gradient(180deg, {SURFACE} 0%, {NEUTRAL} 100%);
-            border-right: 1px solid {BORDER};
+        /* Layered starfield via box-shadow stars */
+        .stApp::before, .stApp::after {{
+            content: "";
+            position: fixed;
+            top: 0; left: 0;
+            width: 2px; height: 2px;
+            background: transparent;
+            pointer-events: none;
+            z-index: 0;
         }}
-        section[data-testid="stSidebar"] * {{ color: {TXT_MAIN}; }}
+        .stApp::before {{
+            box-shadow:
+                120px 80px #fff, 250px 320px #fff, 410px 540px #ddeaff,
+                580px 120px #fff, 720px 380px #cdd9ff, 880px 600px #fff,
+                1020px 200px #fff, 1180px 460px #fff, 1320px 700px #c7d4ff,
+                1480px 80px #fff, 1620px 540px #fff, 1820px 280px #fff,
+                340px 760px #fff, 660px 880px #fff, 980px 940px #fff,
+                1240px 820px #ddeaff, 1540px 980px #fff, 80px 1080px #fff,
+                440px 1240px #fff, 760px 1380px #c7d4ff, 1080px 1140px #fff,
+                1380px 1280px #fff, 1680px 1080px #fff, 200px 1480px #fff,
+                540px 1560px #ddeaff, 860px 1640px #fff, 1180px 1480px #fff,
+                1500px 1620px #fff, 1820px 1560px #fff, 320px 1820px #fff,
+                640px 1880px #c7d4ff, 960px 1940px #fff, 1280px 1820px #fff,
+                1600px 1880px #ddeaff;
+            animation: twinkle 4s ease-in-out infinite, drift 240s linear infinite;
+        }}
+        .stApp::after {{
+            box-shadow:
+                180px 220px #fff, 360px 460px #cdd9ff, 540px 680px #fff,
+                820px 240px #fff, 980px 520px #fff, 1140px 760px #ddeaff,
+                1300px 320px #fff, 1480px 600px #fff, 1700px 440px #c7d4ff,
+                280px 920px #fff, 600px 1040px #ddeaff, 920px 1180px #fff,
+                1240px 980px #fff, 1560px 1100px #fff, 1860px 920px #fff,
+                160px 1320px #fff, 480px 1380px #cdd9ff, 800px 1500px #fff,
+                1120px 1320px #c7d4ff, 1440px 1460px #fff, 1760px 1340px #fff;
+            animation: twinkle 6s ease-in-out infinite 1.5s, drift 320s linear infinite;
+            opacity: 0.7;
+        }}
 
-        /* ===== Typography ===== */
-        h1 {{
-            font-family: 'Inter', sans-serif !important;
-            font-weight: 800 !important;
-            font-size: 2.4rem !important;
-            color: {PRIMARY} !important;
-            letter-spacing: -.025em;
-            margin-bottom: .25rem !important;
+        /* All Streamlit content sits above the starfield */
+        [data-testid="stAppViewContainer"], section[data-testid="stSidebar"] {{
+            position: relative;
+            z-index: 1;
         }}
-        h2 {{ font-weight: 700 !important; color: {PRIMARY} !important; letter-spacing: -.01em; }}
-        h3 {{
+
+        /* ===== Sidebar — galactic console ===== */
+        section[data-testid="stSidebar"] {{
+            background:
+                linear-gradient(180deg, rgba(11,14,32,.92) 0%, rgba(5,6,15,.96) 100%) !important;
+            border-right: 1px solid rgba(124,58,237,.35);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }}
+        section[data-testid="stSidebar"] * {{ color: {STELLAR_WHT}; }}
+
+        /* ===== Typography — cosmic fonts ===== */
+        h1 {{
+            font-family: 'Orbitron', 'Inter', sans-serif !important;
+            font-weight: 800 !important;
+            font-size: 2.55rem !important;
+            background: linear-gradient(120deg, {COSMIC_CYAN} 0%, {NEBULA_HI} 50%, {STAR_GOLD} 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent !important;
+            letter-spacing: .02em;
+            margin-bottom: .25rem !important;
+            text-shadow: 0 0 40px rgba(124,58,237,.4);
+        }}
+        h2 {{
+            font-family: 'Orbitron', 'Inter', sans-serif !important;
             font-weight: 700 !important;
-            font-size: 1.15rem !important;
-            color: {PRIMARY} !important;
+            color: {STELLAR_WHT} !important;
+            letter-spacing: .005em;
+        }}
+        h3 {{
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 700 !important;
+            font-size: 1.18rem !important;
+            color: {STELLAR_WHT} !important;
             letter-spacing: -.005em;
         }}
         h4 {{
             font-weight: 600 !important;
-            color: {SECONDARY} !important;
+            color: {COSMIC_CYAN} !important;
             font-size: .78rem !important;
             text-transform: uppercase;
-            letter-spacing: .1em;
+            letter-spacing: .14em;
             margin-bottom: .75rem !important;
         }}
-        p, label, span, div, li {{ color: {TXT_MAIN}; }}
+        p, label, span, div, li {{ color: {STELLAR_WHT}; }}
 
-        /* ===== Metric cards ===== */
+        /* ===== Metric cards — glassmorphism HUD ===== */
         [data-testid="stMetric"] {{
-            background: {CARD_BG};
-            border: 1px solid {BORDER};
-            border-radius: 14px;
-            padding: 18px 20px;
-            box-shadow: 0 1px 3px rgba(14,59,46,.04), 0 1px 2px rgba(14,59,46,.06);
-            transition: all .2s cubic-bezier(.4,0,.2,1);
+            background: linear-gradient(135deg, rgba(26,31,61,.78) 0%, rgba(17,21,43,.65) 100%);
+            border: 1px solid rgba(124,58,237,.30);
+            border-radius: 16px;
+            padding: 20px 22px;
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,.06),
+                0 4px 24px rgba(5,6,15,.6);
+            transition: all .25s cubic-bezier(.4,0,.2,1);
+            position: relative;
+            overflow: hidden;
+        }}
+        [data-testid="stMetric"]::before {{
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, {COSMIC_CYAN}, {NEBULA_PUR}, transparent);
+            opacity: .55;
         }}
         [data-testid="stMetric"]:hover {{
-            border-color: {SECONDARY};
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(14,59,46,.10), 0 2px 6px rgba(31,111,84,.08);
+            border-color: {COSMIC_CYAN};
+            transform: translateY(-3px);
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,.08),
+                0 0 28px rgba(34,211,238,.35),
+                0 8px 32px rgba(124,58,237,.30);
         }}
         [data-testid="stMetricLabel"] {{
-            color: {TXT_DIM} !important;
+            color: {NEBULA_DIM} !important;
             font-size: .76rem !important;
             font-weight: 600 !important;
-            letter-spacing: .06em;
+            letter-spacing: .12em;
             text-transform: uppercase;
+            font-family: 'JetBrains Mono', monospace !important;
         }}
         [data-testid="stMetricValue"] {{
-            color: {PRIMARY} !important;
+            color: {STELLAR_WHT} !important;
             font-weight: 800 !important;
-            font-size: 1.75rem !important;
-            font-family: 'Inter', sans-serif !important;
-            letter-spacing: -.02em;
+            font-size: 1.85rem !important;
+            font-family: 'Orbitron', 'Inter', sans-serif !important;
+            letter-spacing: -.01em;
+            text-shadow: 0 0 18px rgba(34,211,238,.35);
         }}
         [data-testid="stMetricDelta"] {{
-            color: {SECONDARY_HI} !important;
+            color: {STAR_GOLD} !important;
             font-size: .78rem !important;
             font-weight: 600 !important;
+            font-family: 'JetBrains Mono', monospace !important;
         }}
 
-        /* ===== Tabs ===== */
-        .stTabs [data-baseweb="tab-list"] {{ gap: 4px; border-bottom: 1px solid {BORDER}; }}
+        /* ===== Tabs — neon command bar ===== */
+        .stTabs [data-baseweb="tab-list"] {{
+            gap: 6px;
+            border-bottom: 1px solid rgba(124,58,237,.25);
+            padding-bottom: 2px;
+        }}
         .stTabs [data-baseweb="tab"] {{
-            background: transparent;
-            border: none;
+            background: rgba(17,21,43,.5);
+            border: 1px solid rgba(100,116,139,.22);
             border-radius: 10px 10px 0 0;
-            padding: 12px 20px;
-            color: {TXT_DIM} !important;
+            padding: 12px 22px;
+            color: {NEBULA_DIM} !important;
             font-weight: 600 !important;
             font-size: .92rem;
-            transition: all .15s;
+            letter-spacing: .03em;
+            transition: all .2s ease;
+            backdrop-filter: blur(8px);
         }}
         .stTabs [data-baseweb="tab"]:hover {{
-            color: {PRIMARY} !important;
-            background: {SURFACE};
+            color: {COSMIC_CYAN} !important;
+            background: rgba(34,211,238,.08);
+            border-color: rgba(34,211,238,.4);
+            box-shadow: 0 0 16px rgba(34,211,238,.25);
         }}
         .stTabs [aria-selected="true"] {{
-            color: {PRIMARY} !important;
-            background: {CARD_BG};
-            border-bottom: 3px solid {SECONDARY} !important;
+            color: {STELLAR_WHT} !important;
+            background: linear-gradient(135deg, rgba(124,58,237,.30), rgba(34,211,238,.18)) !important;
+            border-color: {COSMIC_CYAN} !important;
+            border-bottom: 3px solid {COSMIC_CYAN} !important;
+            box-shadow: 0 0 22px rgba(34,211,238,.35);
         }}
 
-        /* ===== Buttons ===== */
+        /* ===== Buttons — plasma drive (FIX: explicit white text always visible) ===== */
         .stDownloadButton button, .stButton button {{
-            background: {PRIMARY} !important;
-            color: {NEUTRAL} !important;
-            border: 1px solid {PRIMARY} !important;
-            font-weight: 600 !important;
-            font-size: .9rem !important;
+            background: linear-gradient(135deg, {NEBULA_PUR} 0%, {COSMIC_CYAN} 100%) !important;
+            color: #FFFFFF !important;
+            border: 1px solid rgba(167,139,250,.55) !important;
+            font-weight: 700 !important;
+            font-size: .92rem !important;
+            letter-spacing: .04em !important;
+            text-transform: uppercase;
             border-radius: 10px !important;
-            padding: .6rem 1.2rem !important;
-            transition: all .2s cubic-bezier(.4,0,.2,1);
-            box-shadow: 0 1px 2px rgba(14,59,46,.10);
+            padding: .65rem 1.5rem !important;
+            transition: all .25s cubic-bezier(.4,0,.2,1);
+            box-shadow:
+                0 0 18px rgba(124,58,237,.45),
+                inset 0 1px 0 rgba(255,255,255,.18);
+            text-shadow: 0 1px 2px rgba(5,6,15,.6);
+            position: relative;
+            overflow: hidden;
+        }}
+        .stDownloadButton button *, .stButton button * {{
+            color: #FFFFFF !important;
         }}
         .stDownloadButton button:hover, .stButton button:hover {{
-            background: {SECONDARY} !important;
-            border-color: {SECONDARY} !important;
-            transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(14,59,46,.18);
+            background: linear-gradient(135deg, {COSMIC_CYAN} 0%, {NEBULA_HI} 100%) !important;
+            border-color: {CYAN_HI} !important;
+            color: #FFFFFF !important;
+            transform: translateY(-2px);
+            box-shadow:
+                0 0 32px rgba(34,211,238,.65),
+                0 0 56px rgba(124,58,237,.40),
+                inset 0 1px 0 rgba(255,255,255,.25);
+        }}
+        .stDownloadButton button:active, .stButton button:active {{
+            transform: translateY(0);
+            box-shadow: 0 0 12px rgba(34,211,238,.4);
         }}
 
-        /* ===== Inputs ===== */
+        /* ===== Inputs — holographic terminals ===== */
         input, textarea, .stTextInput input, .stDateInput input,
         [data-baseweb="select"] > div, [data-baseweb="input"] {{
-            background: {CARD_BG} !important;
-            color: {TXT_MAIN} !important;
-            border: 1px solid {BORDER} !important;
+            background: rgba(11,14,32,.7) !important;
+            color: {STELLAR_WHT} !important;
+            border: 1px solid rgba(124,58,237,.30) !important;
             border-radius: 10px !important;
-            font-size: .9rem !important;
+            font-size: .92rem !important;
+            backdrop-filter: blur(6px);
         }}
-        input:focus, [data-baseweb="select"] > div:focus-within {{
-            border-color: {SECONDARY} !important;
-            box-shadow: 0 0 0 3px rgba(31,111,84,.18) !important;
+        input::placeholder, textarea::placeholder {{ color: {COSMIC_DUST} !important; }}
+        input:focus, textarea:focus, [data-baseweb="select"] > div:focus-within {{
+            border-color: {COSMIC_CYAN} !important;
+            box-shadow: 0 0 0 3px rgba(34,211,238,.22), 0 0 18px rgba(34,211,238,.30) !important;
+            outline: none !important;
         }}
         [data-baseweb="tag"] {{
-            background: {SURFACE} !important;
-            border: 1px solid {BORDER} !important;
-            color: {PRIMARY} !important;
+            background: linear-gradient(135deg, rgba(124,58,237,.25), rgba(34,211,238,.18)) !important;
+            border: 1px solid rgba(124,58,237,.45) !important;
+            color: {STELLAR_WHT} !important;
         }}
+        [data-baseweb="select"] [data-baseweb="icon"] {{ color: {COSMIC_CYAN} !important; }}
 
-        /* ===== File uploader ===== */
+        /* ===== File uploader — docking bay ===== */
         [data-testid="stFileUploader"] section {{
-            background: {CARD_BG} !important;
-            border: 1px dashed {SECONDARY} !important;
-            border-radius: 12px !important;
+            background: rgba(17,21,43,.55) !important;
+            border: 1.5px dashed rgba(34,211,238,.55) !important;
+            border-radius: 14px !important;
+            backdrop-filter: blur(10px);
+            transition: all .25s ease;
         }}
         [data-testid="stFileUploader"] section:hover {{
-            border-color: {PRIMARY} !important;
-            background: {SURFACE} !important;
+            border-color: {COSMIC_CYAN} !important;
+            background: rgba(34,211,238,.08) !important;
+            box-shadow: 0 0 28px rgba(34,211,238,.30);
         }}
-        [data-testid="stFileUploader"] small {{ color: {TXT_DIM} !important; }}
+        [data-testid="stFileUploader"] small {{ color: {NEBULA_DIM} !important; }}
+        [data-testid="stFileUploader"] svg {{ color: {COSMIC_CYAN} !important; }}
 
-        /* ===== Cards ===== */
+        /* ===== Insight cards — telemetry panels ===== */
         .insight-card {{
-            background: {CARD_BG};
-            border: 1px solid {BORDER};
-            border-left: 4px solid {SECONDARY};
-            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(26,31,61,.78) 0%, rgba(17,21,43,.6) 100%);
+            border: 1px solid rgba(124,58,237,.28);
+            border-left: 4px solid {COSMIC_CYAN};
+            border-radius: 14px;
             padding: 18px 22px; margin-bottom: 14px;
-            box-shadow: 0 1px 3px rgba(14,59,46,.04);
-            transition: transform .15s, box-shadow .15s;
+            backdrop-filter: blur(14px);
+            box-shadow: 0 4px 18px rgba(5,6,15,.55), inset 0 1px 0 rgba(255,255,255,.04);
+            transition: all .2s cubic-bezier(.4,0,.2,1);
         }}
-        .insight-card:hover {{ transform: translateX(2px); box-shadow: 0 4px 12px rgba(14,59,46,.08); }}
-        .insight-card.warn {{ border-left-color: {ALERT}; }}
-        .insight-card.good {{ border-left-color: {SECONDARY_HI}; }}
-        .insight-card.info {{ border-left-color: {GOLD}; }}
-        .insight-card.success {{ border-left-color: {SECONDARY_HI}; background: linear-gradient(90deg, {SURFACE} 0%, {CARD_BG} 30%); }}
+        .insight-card:hover {{
+            transform: translateX(3px);
+            border-left-color: {NEBULA_HI};
+            box-shadow:
+                0 4px 24px rgba(5,6,15,.65),
+                0 0 22px rgba(124,58,237,.30);
+        }}
+        .insight-card.warn {{ border-left-color: {PLASMA_RED}; box-shadow: 0 4px 18px rgba(244,63,94,.20); }}
+        .insight-card.good {{ border-left-color: #10B981; box-shadow: 0 4px 18px rgba(16,185,129,.18); }}
+        .insight-card.info {{ border-left-color: {STAR_GOLD}; box-shadow: 0 4px 18px rgba(251,191,36,.18); }}
+        .insight-card.success {{
+            border-left-color: #10B981;
+            background: linear-gradient(135deg, rgba(16,185,129,.18) 0%, rgba(17,21,43,.6) 50%);
+        }}
         .insight-card h4 {{
             margin: 0 0 .5rem 0 !important;
-            color: {PRIMARY} !important;
+            color: {STELLAR_WHT} !important;
             text-transform: none;
-            font-size: 1.02rem !important;
+            font-size: 1.04rem !important;
             font-weight: 700 !important;
             letter-spacing: 0;
         }}
-        .insight-card div {{ font-size: .94rem; line-height: 1.6; color: {TXT_MAIN}; }}
+        .insight-card div {{ font-size: .94rem; line-height: 1.6; color: {STELLAR_WHT}; }}
 
         .stat-pill {{
-            display: inline-block; padding: .3rem .75rem; border-radius: 999px;
-            background: {CARD_BG}; border: 1px solid {BORDER};
-            color: {TXT_DIM}; font-size: .78rem; font-weight: 600;
+            display: inline-block; padding: .32rem .78rem; border-radius: 999px;
+            background: rgba(11,14,32,.7); border: 1px solid rgba(124,58,237,.35);
+            color: {NEBULA_DIM}; font-size: .78rem; font-weight: 600;
             font-family: 'JetBrains Mono', monospace;
             margin-right: .4rem;
+            backdrop-filter: blur(6px);
         }}
-        .pill-good {{ background:{SURFACE}; border-color:{SECONDARY}; color:{PRIMARY}; }}
-        .pill-warn {{ background:#FEE2E2; border-color:{ALERT}; color:{ALERT}; }}
-        .pill-info {{ background:#FEF3C7; border-color:{GOLD}; color:#92400E; }}
+        .pill-good {{ background: rgba(16,185,129,.18); border-color: #10B981; color: #6EE7B7; }}
+        .pill-warn {{ background: rgba(244,63,94,.18); border-color: {PLASMA_RED}; color: #FDA4AF; }}
+        .pill-info {{ background: rgba(251,191,36,.18); border-color: {STAR_GOLD}; color: #FCD34D; }}
 
-        .text-emerald {{ color: {SECONDARY_HI} !important; font-weight: 600; }}
-        .text-coral {{ color: {ALERT} !important; font-weight: 600; }}
-        .text-blue {{ color: {PRIMARY} !important; font-weight: 600; }}
-        .text-dim {{ color: {TXT_DIM} !important; }}
+        .text-emerald {{ color: #34D399 !important; font-weight: 600; }}
+        .text-coral {{ color: {PLASMA_RED} !important; font-weight: 600; }}
+        .text-blue {{ color: {COSMIC_CYAN} !important; font-weight: 600; }}
+        .text-dim {{ color: {NEBULA_DIM} !important; }}
 
         .footer {{
             text-align: center; padding: 2rem 0 1rem 0;
-            color: {TXT_MUTED} !important; font-size: .8rem;
-            border-top: 1px solid {BORDER}; margin-top: 2rem;
+            color: {NEBULA_DIM} !important; font-size: .82rem;
+            border-top: 1px solid rgba(124,58,237,.25); margin-top: 2.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: .05em;
         }}
-        .footer a {{ color: {SECONDARY_HI} !important; text-decoration: none; font-weight: 600; }}
+        .footer a {{ color: {COSMIC_CYAN} !important; text-decoration: none; font-weight: 700; }}
+        .footer a:hover {{ text-shadow: 0 0 12px rgba(34,211,238,.6); }}
 
-        /* ===== DataFrame ===== */
+        /* ===== DataFrame — flight-deck table ===== */
         [data-testid="stDataFrame"] {{
-            background: {CARD_BG} !important;
-            border: 1px solid {BORDER};
-            border-radius: 12px; overflow: hidden;
-            box-shadow: 0 1px 3px rgba(14,59,46,.04);
+            background: rgba(17,21,43,.7) !important;
+            border: 1px solid rgba(124,58,237,.30);
+            border-radius: 14px; overflow: hidden;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 18px rgba(5,6,15,.55);
         }}
+        [data-testid="stDataFrame"] * {{ color: {STELLAR_WHT} !important; }}
 
-        /* ===== Dividers ===== */
+        /* ===== Dividers — quantum threads ===== */
         hr, [data-testid="stDivider"] {{
             border: none !important;
             height: 1px !important;
-            background: linear-gradient(90deg, transparent, {BORDER}, transparent) !important;
+            background: linear-gradient(90deg, transparent, {NEBULA_PUR}, {COSMIC_CYAN}, {NEBULA_PUR}, transparent) !important;
             margin: 1.5rem 0 !important;
+            opacity: .55;
         }}
 
         /* ===== Alerts ===== */
         [data-testid="stAlert"] {{
-            background: {CARD_BG} !important;
-            border: 1px solid {BORDER} !important;
+            background: rgba(17,21,43,.7) !important;
+            border: 1px solid rgba(124,58,237,.35) !important;
             border-radius: 12px !important;
+            backdrop-filter: blur(10px);
+            color: {STELLAR_WHT} !important;
         }}
+        [data-testid="stAlert"] * {{ color: {STELLAR_WHT} !important; }}
 
-        /* ===== Sidebar branding ===== */
+        /* ===== Sidebar branding — mission patch ===== */
         .brand-logo {{
-            display: flex; align-items: center; gap: .65rem;
-            padding: .5rem 0; margin-bottom: 1.25rem;
+            display: flex; align-items: center; gap: .75rem;
+            padding: .6rem 0; margin-bottom: 1.25rem;
         }}
         .brand-logo .icon {{
-            width: 42px; height: 42px;
-            background: linear-gradient(135deg, {PRIMARY}, {SECONDARY});
-            border-radius: 11px;
+            width: 46px; height: 46px;
+            background: radial-gradient(circle at 30% 30%, {NEBULA_HI}, {NEBULA_PUR} 55%, {DEEP_SPACE});
+            border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.4rem; box-shadow: 0 4px 14px rgba(14,59,46,.25);
-            color: {NEUTRAL};
+            font-size: 1.5rem;
+            color: {STELLAR_WHT};
+            border: 1px solid rgba(167,139,250,.6);
+            animation: pulseGlow 3.5s ease-in-out infinite;
         }}
         .brand-logo .name {{
-            font-weight: 800; font-size: 1.2rem; color: {PRIMARY};
-            letter-spacing: -.015em;
+            font-family: 'Orbitron', sans-serif !important;
+            font-weight: 800; font-size: 1.18rem;
+            background: linear-gradient(120deg, {COSMIC_CYAN}, {NEBULA_HI});
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            letter-spacing: .04em;
         }}
         .brand-logo .tag {{
-            font-size: .68rem; color: {SECONDARY};
-            text-transform: uppercase; letter-spacing: .14em;
+            font-size: .66rem; color: {COSMIC_CYAN};
+            text-transform: uppercase; letter-spacing: .18em;
             font-family: 'JetBrains Mono', monospace;
         }}
 
+        /* ===== Sidebar Pro tile — warp drive ===== */
+        .pro-tile {{
+            background: linear-gradient(135deg, {NEBULA_PUR} 0%, {COSMIC_CYAN} 100%);
+            border-radius: 14px;
+            padding: 1rem 1.1rem;
+            color: #FFFFFF !important;
+            box-shadow: 0 6px 22px rgba(124,58,237,.55), inset 0 1px 0 rgba(255,255,255,.18);
+            position: relative;
+            overflow: hidden;
+        }}
+        .pro-tile::after {{
+            content: "";
+            position: absolute; inset: 0;
+            background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.18) 50%, transparent 70%);
+            background-size: 200% 100%;
+            animation: shimmer 4s linear infinite;
+            pointer-events: none;
+        }}
+        .pro-tile * {{ color: #FFFFFF !important; }}
+
+        /* ===== Scrollbars ===== */
         ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
-        ::-webkit-scrollbar-track {{ background: {SURFACE}; }}
-        ::-webkit-scrollbar-thumb {{ background: {SURFACE_DEEP}; border-radius: 5px; }}
-        ::-webkit-scrollbar-thumb:hover {{ background: {SECONDARY}; }}
+        ::-webkit-scrollbar-track {{ background: {DEEP_SPACE}; }}
+        ::-webkit-scrollbar-thumb {{
+            background: linear-gradient(180deg, {NEBULA_PUR}, {COSMIC_CYAN});
+            border-radius: 5px;
+        }}
+        ::-webkit-scrollbar-thumb:hover {{ background: {COSMIC_CYAN}; }}
 
         /* Toggle */
         [role="switch"][aria-checked="true"] {{
-            background: {SECONDARY} !important;
+            background: {COSMIC_CYAN} !important;
         }}
 
-        /* Plotly chart container — subtle card lift */
+        /* ===== Plotly chart container — viewport pane ===== */
         [data-testid="stPlotlyChart"] > div {{
-            background: {CARD_BG};
-            border: 1px solid {BORDER};
-            border-radius: 14px;
-            padding: 8px;
-            box-shadow: 0 1px 3px rgba(14,59,46,.04);
+            background: linear-gradient(135deg, rgba(17,21,43,.55) 0%, rgba(11,14,32,.7) 100%);
+            border: 1px solid rgba(124,58,237,.28);
+            border-radius: 16px;
+            padding: 12px;
+            backdrop-filter: blur(14px);
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,.04),
+                0 4px 22px rgba(5,6,15,.55);
+            transition: box-shadow .25s ease;
+        }}
+        [data-testid="stPlotlyChart"] > div:hover {{
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,.06),
+                0 0 26px rgba(34,211,238,.25),
+                0 4px 28px rgba(5,6,15,.65);
+        }}
+
+        /* ===== Sliders ===== */
+        [data-baseweb="slider"] [role="slider"] {{
+            background: {COSMIC_CYAN} !important;
+            box-shadow: 0 0 12px rgba(34,211,238,.6) !important;
+        }}
+
+        /* ===== Expander ===== */
+        [data-testid="stExpander"] {{
+            background: rgba(17,21,43,.6) !important;
+            border: 1px solid rgba(124,58,237,.28) !important;
+            border-radius: 12px !important;
+            backdrop-filter: blur(10px);
+        }}
+        [data-testid="stExpander"] summary {{ color: {STELLAR_WHT} !important; }}
+
+        /* ===== Code blocks ===== */
+        code, pre {{
+            background: rgba(5,6,15,.7) !important;
+            color: {COSMIC_CYAN} !important;
+            border-radius: 6px;
         }}
     </style>
     """,
@@ -968,7 +1207,7 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:latest")
 # Headers required for free-tier ngrok tunnels (skip the browser interstitial)
 _OLLAMA_HEADERS = {
     "ngrok-skip-browser-warning": "true",
-    "User-Agent": "ClearLedgerAI/1.0",
+    "User-Agent": "IronStarLedger/1.0",
 }
 
 
@@ -1075,9 +1314,9 @@ if "remaps" not in st.session_state:
 with st.sidebar:
     st.markdown(
         f"<div class='brand-logo'>"
-        f"<div class='icon'>💎</div>"
-        f"<div><div class='name'>ClearLedger</div>"
-        f"<div class='tag'>AI Money Coach</div></div></div>",
+        f"<div class='icon'>🪐</div>"
+        f"<div><div class='name'>Iron Star Ledger</div>"
+        f"<div class='tag'>Powered by PLEX Automation</div></div></div>",
         unsafe_allow_html=True,
     )
     st.markdown("<h4>Upload statements</h4>", unsafe_allow_html=True)
@@ -1091,10 +1330,10 @@ with st.sidebar:
     use_demo = st.toggle("Use demo data", value=not uploaded)
 
     st.markdown(
-        f"<div style='margin-top:1rem;padding:.95rem;border:1px solid {BORDER};"
-        f"border-radius:12px;background:{CARD_BG};'>"
-        f"<div style='color:{SECONDARY};font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700;'>Supported</div>"
-        f"<div style='font-size:.85rem;color:{TXT_MAIN};margin-top:.4rem;line-height:1.7;'>"
+        f"<div style='margin-top:1rem;padding:.95rem;border:1px solid rgba(124,58,237,.30);"
+        f"border-radius:12px;background:rgba(17,21,43,.6);backdrop-filter:blur(10px);'>"
+        f"<div style='color:{COSMIC_CYAN};font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;font-family:JetBrains Mono,monospace;'>◆ Telemetry</div>"
+        f"<div style='font-size:.85rem;color:{STELLAR_WHT};margin-top:.45rem;line-height:1.75;'>"
         "✓ CSV (auto-detect delimiter)<br>"
         "✓ Excel (.xlsx, .xls)<br>"
         "✓ OFX, QFX, QBO</div>"
@@ -1103,23 +1342,23 @@ with st.sidebar:
     )
 
     st.markdown(
-        f"<div style='margin-top:1.25rem;padding:1.1rem;border-radius:12px;"
-        f"background:linear-gradient(135deg,{PRIMARY},{SECONDARY});"
-        f"border:1px solid {PRIMARY};box-shadow:0 8px 22px rgba(14,59,46,.18);'>"
-        f"<div style='font-weight:700;color:{SURFACE};font-size:.78rem;"
-        "letter-spacing:.1em;text-transform:uppercase;'>ClearLedger Pro</div>"
-        f"<div style='color:{NEUTRAL};margin:.55rem 0;font-size:.86rem;line-height:1.5;'>"
+        "<div class='pro-tile' style='margin-top:1.25rem;'>"
+        "<div style='font-weight:700;font-size:.78rem;"
+        "letter-spacing:.14em;text-transform:uppercase;font-family:Orbitron,sans-serif;'>"
+        "★ Iron Star Pro</div>"
+        "<div style='margin:.55rem 0;font-size:.88rem;line-height:1.55;'>"
         "Live AI coaching · Smart alerts · Multi-account sync · PDF reports</div>"
-        f"<div style='font-size:1.7rem;font-weight:800;color:{NEUTRAL};letter-spacing:-.02em;'>"
-        f"$9<span style='font-size:.75rem;color:{SURFACE};font-weight:500;'> /mo</span></div>"
-        f"<a href='#' style='display:block;margin-top:.7rem;text-align:center;padding:.6rem;"
-        f"background:{NEUTRAL};color:{PRIMARY};border-radius:9px;text-decoration:none;"
-        "font-weight:700;font-size:.88rem;'>Upgrade →</a>"
+        "<div style='font-size:1.85rem;font-weight:800;letter-spacing:-.01em;font-family:Orbitron,sans-serif;'>"
+        "$9<span style='font-size:.78rem;font-weight:500;opacity:.85;'> /mo</span></div>"
+        "<a href='#' style='display:block;margin-top:.75rem;text-align:center;padding:.65rem;"
+        "background:rgba(5,6,15,.55);border:1px solid rgba(255,255,255,.35);"
+        "border-radius:10px;text-decoration:none;"
+        "font-weight:700;font-size:.88rem;letter-spacing:.06em;text-transform:uppercase;'>Engage Warp →</a>"
         "</div>",
         unsafe_allow_html=True,
     )
-    st.markdown(f"<p style='color:{TXT_MUTED};font-size:.7rem;text-align:center;"
-                "margin-top:1.25rem;letter-spacing:.05em;'>"
+    st.markdown(f"<p style='color:{NEBULA_DIM};font-size:.72rem;text-align:center;"
+                "margin-top:1.25rem;letter-spacing:.08em;font-family:JetBrains Mono,monospace;'>"
                 "🔒 In-memory · Never stored on servers</p>", unsafe_allow_html=True)
 
 
@@ -1127,9 +1366,10 @@ with st.sidebar:
 # HEADER
 # ============================================================
 st.markdown(
-    "<h1>ClearLedger AI</h1>"
-    f"<p style='color:{TXT_DIM};font-size:1.05rem;margin:.25rem 0 1.5rem 0;font-weight:500;'>"
-    "Honest financial wellness — built on your real cashflow, coached by AI.</p>",
+    "<h1>★ Iron Star Ledger</h1>"
+    f"<p style='color:{NEBULA_DIM};font-size:1.05rem;margin:.25rem 0 1.5rem 0;font-weight:500;"
+    "letter-spacing:.04em;font-family:JetBrains Mono,monospace;'>"
+    "Charting your financial galaxy — real cashflow, AI navigator, plasma-grade insights.</p>",
     unsafe_allow_html=True,
 )
 
@@ -1219,16 +1459,18 @@ if needs_remap:
 
 if not parsed_frames:
     st.markdown(
-        f"<div style='text-align:center;padding:4rem 2rem;border:1px dashed {SECONDARY};"
-        f"border-radius:16px;background:{CARD_BG};box-shadow:0 1px 3px rgba(14,59,46,.04);'>"
-        f"<div style='font-size:3.4rem;'>📊</div>"
-        f"<h3 style='color:{PRIMARY};margin:.85rem 0;'>Upload a statement to get started</h3>"
-        f"<p style='color:{TXT_DIM};max-width:480px;margin:0 auto;font-size:.95rem;'>"
-        "Drop a <b>CSV</b>, <b>Excel</b>, <b>OFX</b>, or <b>QFX</b> file in the sidebar — "
-        "or flip on demo data to see the dashboard.</p></div>",
+        f"<div style='text-align:center;padding:4rem 2rem;border:1.5px dashed rgba(34,211,238,.5);"
+        f"border-radius:18px;background:linear-gradient(135deg,rgba(17,21,43,.7),rgba(11,14,32,.5));"
+        f"backdrop-filter:blur(14px);box-shadow:0 6px 28px rgba(5,6,15,.6),0 0 32px rgba(124,58,237,.20);'>"
+        f"<div style='font-size:3.6rem;filter:drop-shadow(0 0 18px rgba(34,211,238,.5));'>🛰️</div>"
+        f"<h3 style='color:{STELLAR_WHT};margin:.85rem 0;font-family:Orbitron,sans-serif;'>Awaiting transmission…</h3>"
+        f"<p style='color:{NEBULA_DIM};max-width:520px;margin:0 auto;font-size:.95rem;'>"
+        "Beam up a <b style='color:" + COSMIC_CYAN + ";'>CSV</b>, <b style='color:" + COSMIC_CYAN + ";'>Excel</b>, "
+        "<b style='color:" + COSMIC_CYAN + ";'>OFX</b>, or <b style='color:" + COSMIC_CYAN + ";'>QFX</b> file via the sidebar — "
+        "or activate demo data to launch the bridge view.</p></div>",
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="footer">Powered by <a href="#">Plex Automation</a></div>', unsafe_allow_html=True)
+    st.markdown('<div class="footer">★ Iron Star Ledger · Powered by <a href="#">PLEX Automation</a></div>', unsafe_allow_html=True)
     st.stop()
 
 raw_df = pd.concat(parsed_frames, ignore_index=True).sort_values("date").reset_index(drop=True)
@@ -1696,7 +1938,7 @@ if ghl_url:
 # FOOTER
 # ============================================================
 st.markdown(
-    "<div class='footer'>Powered by <a href='#'>Plex Automation</a> · "
+    "<div class='footer'>★ Iron Star Ledger · Powered by <a href='#'>PLEX Automation</a> · "
     "<a href='https://github.com/ThaGuff/ClearLedgerAI'>GitHub</a> · "
     "Bank-grade in-memory processing</div>",
     unsafe_allow_html=True,
