@@ -21,49 +21,72 @@ import requests
 import streamlit as st
 
 # ============================================================
-# Modern fintech palette (Mercury/Linear/Stripe-inspired)
+# Forest-green palette (clean banking / wealth-management feel)
 # ============================================================
-BG_DEEP    = "#0a0f1f"      # deep navy/slate
-BG_PANEL   = "#111827"      # slate panel
-BG_CARD    = "#1a2236"      # elevated card
-BORDER     = "#2a3450"
-GRID       = "#1f2940"
+PRIMARY    = "#0E3B2E"      # Forest Green — primary text, CTAs, key data
+SECONDARY  = "#1F6F54"      # Sage — accents, charts
+SURFACE    = "#D7E7DD"      # Pale Mint — cards, secondary surfaces
+NEUTRAL    = "#F6FBF7"      # Soft White — page background
+ALERT      = "#EF4444"      # Coral Red — negatives / warnings
 
-EMERALD    = "#10b981"      # positive / trust
-EMERALD_HI = "#34d399"
-BLUE       = "#3b82f6"      # primary accent
-BLUE_HI    = "#60a5fa"
-INDIGO     = "#6366f1"
-CORAL      = "#f43f5e"      # spend / negative
-ROSE       = "#fb7185"
-AMBER      = "#f59e0b"      # warning
-VIOLET     = "#8b5cf6"      # secondary highlight
+# Derived shades
+PRIMARY_SOFT  = "#1A5742"   # primary tinted lighter for hover
+SECONDARY_HI  = "#2A8A6A"   # sage hover
+SURFACE_HI    = "#C5DDD0"   # mint hover
+SURFACE_DEEP  = "#B5CFC1"   # mint border
+TXT_MAIN   = "#0E3B2E"      # = PRIMARY
+TXT_DIM    = "#5A7A6E"      # muted forest
+TXT_MUTED  = "#8FA89E"      # very muted
+BORDER     = "#C5DDD0"      # subtle mint border
+GRID       = "#E5EFE8"      # very pale mint grid
 
-TXT_MAIN   = "#f1f5f9"
-TXT_DIM    = "#94a3b8"
-TXT_MUTED  = "#64748b"
+# Status / chart accents
+SUCCESS    = SECONDARY      # green for positive
+SUCCESS_HI = SECONDARY_HI
+WARNING    = "#D97706"      # amber for caution (used sparingly)
+GOLD       = "#B8945A"      # warm tertiary
+SKY        = "#5BA8A0"      # complementary teal for variety
 
-CHART_PALETTE = [BLUE, EMERALD, VIOLET, AMBER, CORAL, "#06b6d4", "#ec4899", INDIGO]
+# Category colorway — varied but harmonious with the green palette
+CHART_PALETTE = [
+    SECONDARY,          # sage
+    PRIMARY,            # forest
+    "#4A9C7B",          # mid sage
+    GOLD,               # warm gold
+    SKY,                # teal
+    "#84BFA0",          # light sage
+    WARNING,            # amber
+    ALERT,              # coral (last resort)
+]
 
-# Custom Plotly template
-synth = go.layout.Template()
-synth.layout = go.Layout(
-    paper_bgcolor=BG_PANEL,
-    plot_bgcolor=BG_PANEL,
-    font=dict(family="Inter, ui-sans-serif, system-ui", color=TXT_MAIN, size=12),
+# Custom Plotly template — light theme, rich interactivity
+_tpl = go.layout.Template()
+_tpl.layout = go.Layout(
+    paper_bgcolor=NEUTRAL,
+    plot_bgcolor=NEUTRAL,
+    font=dict(family="Inter, ui-sans-serif, system-ui", color=PRIMARY, size=12),
     colorway=CHART_PALETTE,
-    title=dict(font=dict(color=TXT_MAIN, size=15)),
-    xaxis=dict(gridcolor=GRID, zerolinecolor=GRID, linecolor=GRID,
-               tickfont=dict(color=TXT_DIM, size=11)),
-    yaxis=dict(gridcolor=GRID, zerolinecolor=GRID, linecolor=GRID,
-               tickfont=dict(color=TXT_DIM, size=11)),
-    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=TXT_DIM, size=11)),
-    hoverlabel=dict(bgcolor=BG_CARD, bordercolor=BLUE,
-                    font=dict(color=TXT_MAIN, family="Inter", size=12)),
-    margin=dict(t=30, b=20, l=10, r=10),
+    title=dict(font=dict(color=PRIMARY, size=15, family="Inter"), x=0.01, xanchor="left"),
+    xaxis=dict(gridcolor=GRID, zerolinecolor=BORDER, linecolor=BORDER,
+               tickfont=dict(color=TXT_DIM, size=11),
+               showspikes=True, spikecolor=PRIMARY_SOFT, spikethickness=1, spikedash="dot",
+               spikemode="across"),
+    yaxis=dict(gridcolor=GRID, zerolinecolor=BORDER, linecolor=BORDER,
+               tickfont=dict(color=TXT_DIM, size=11),
+               showspikes=True, spikecolor=PRIMARY_SOFT, spikethickness=1, spikedash="dot"),
+    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=TXT_DIM, size=11),
+                bordercolor=BORDER, borderwidth=0),
+    hoverlabel=dict(bgcolor=PRIMARY, bordercolor=PRIMARY,
+                    font=dict(color=NEUTRAL, family="Inter", size=12)),
+    hovermode="x unified",
+    margin=dict(t=40, b=30, l=20, r=20),
+    transition=dict(duration=400, easing="cubic-in-out"),
 )
-pio.templates["fintech"] = synth
-pio.templates.default = "fintech"
+pio.templates["clearledger"] = _tpl
+pio.templates.default = "clearledger"
+
+# Categories that are *not* real spend — exclude from expense math
+NON_SPEND_CATEGORIES = {"Transfers", "Income", "Income (unverified)"}
 
 # ============================================================
 # Page config + global CSS
@@ -75,6 +98,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+CARD_BG = "#FFFFFF"  # white card surface on the soft mint page
+
 st.markdown(
     f"""
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -85,14 +110,14 @@ st.markdown(
 
         .stApp {{
             background:
-                radial-gradient(ellipse 80% 50% at 50% -10%, rgba(59,130,246,.08) 0%, transparent 60%),
-                radial-gradient(ellipse 60% 40% at 90% 100%, rgba(16,185,129,.05) 0%, transparent 60%),
-                {BG_DEEP};
+                radial-gradient(ellipse 80% 50% at 50% -10%, rgba(31,111,84,.08) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 90% 100%, rgba(14,59,46,.05) 0%, transparent 60%),
+                {NEUTRAL};
             color: {TXT_MAIN};
             background-attachment: fixed;
         }}
         section[data-testid="stSidebar"] {{
-            background: {BG_PANEL};
+            background: linear-gradient(180deg, {SURFACE} 0%, {NEUTRAL} 100%);
             border-right: 1px solid {BORDER};
         }}
         section[data-testid="stSidebar"] * {{ color: {TXT_MAIN}; }}
@@ -101,56 +126,60 @@ st.markdown(
         h1 {{
             font-family: 'Inter', sans-serif !important;
             font-weight: 800 !important;
-            font-size: 2.25rem !important;
-            color: {TXT_MAIN} !important;
-            letter-spacing: -.02em;
+            font-size: 2.4rem !important;
+            color: {PRIMARY} !important;
+            letter-spacing: -.025em;
             margin-bottom: .25rem !important;
         }}
-        h2 {{ font-weight: 700 !important; letter-spacing: -.01em; }}
+        h2 {{ font-weight: 700 !important; color: {PRIMARY} !important; letter-spacing: -.01em; }}
         h3 {{
             font-weight: 700 !important;
             font-size: 1.15rem !important;
-            color: {TXT_MAIN} !important;
+            color: {PRIMARY} !important;
             letter-spacing: -.005em;
         }}
         h4 {{
             font-weight: 600 !important;
-            color: {TXT_DIM} !important;
-            font-size: .8rem !important;
+            color: {SECONDARY} !important;
+            font-size: .78rem !important;
             text-transform: uppercase;
-            letter-spacing: .08em;
+            letter-spacing: .1em;
             margin-bottom: .75rem !important;
         }}
         p, label, span, div, li {{ color: {TXT_MAIN}; }}
 
         /* ===== Metric cards ===== */
         [data-testid="stMetric"] {{
-            background: {BG_CARD};
+            background: {CARD_BG};
             border: 1px solid {BORDER};
-            border-radius: 12px;
-            padding: 16px 18px;
-            transition: border-color .15s, transform .15s;
+            border-radius: 14px;
+            padding: 18px 20px;
+            box-shadow: 0 1px 3px rgba(14,59,46,.04), 0 1px 2px rgba(14,59,46,.06);
+            transition: all .2s cubic-bezier(.4,0,.2,1);
         }}
         [data-testid="stMetric"]:hover {{
-            border-color: {BLUE}66;
-            transform: translateY(-1px);
+            border-color: {SECONDARY};
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(14,59,46,.10), 0 2px 6px rgba(31,111,84,.08);
         }}
         [data-testid="stMetricLabel"] {{
             color: {TXT_DIM} !important;
-            font-size: .78rem !important;
-            font-weight: 500 !important;
-            letter-spacing: .02em;
+            font-size: .76rem !important;
+            font-weight: 600 !important;
+            letter-spacing: .06em;
+            text-transform: uppercase;
         }}
         [data-testid="stMetricValue"] {{
-            color: {TXT_MAIN} !important;
-            font-weight: 700 !important;
-            font-size: 1.65rem !important;
+            color: {PRIMARY} !important;
+            font-weight: 800 !important;
+            font-size: 1.75rem !important;
             font-family: 'Inter', sans-serif !important;
+            letter-spacing: -.02em;
         }}
         [data-testid="stMetricDelta"] {{
-            color: {EMERALD_HI} !important;
+            color: {SECONDARY_HI} !important;
             font-size: .78rem !important;
-            font-weight: 500 !important;
+            font-weight: 600 !important;
         }}
 
         /* ===== Tabs ===== */
@@ -158,168 +187,184 @@ st.markdown(
         .stTabs [data-baseweb="tab"] {{
             background: transparent;
             border: none;
-            border-radius: 8px 8px 0 0;
-            padding: 12px 18px;
+            border-radius: 10px 10px 0 0;
+            padding: 12px 20px;
             color: {TXT_DIM} !important;
-            font-weight: 500 !important;
-            font-size: .9rem;
+            font-weight: 600 !important;
+            font-size: .92rem;
             transition: all .15s;
         }}
         .stTabs [data-baseweb="tab"]:hover {{
-            color: {TXT_MAIN} !important;
-            background: {BG_CARD};
+            color: {PRIMARY} !important;
+            background: {SURFACE};
         }}
         .stTabs [aria-selected="true"] {{
-            color: {BLUE_HI} !important;
-            background: {BG_CARD};
-            border-bottom: 2px solid {BLUE} !important;
+            color: {PRIMARY} !important;
+            background: {CARD_BG};
+            border-bottom: 3px solid {SECONDARY} !important;
         }}
 
         /* ===== Buttons ===== */
         .stDownloadButton button, .stButton button {{
-            background: {BLUE} !important;
-            color: white !important;
-            border: 1px solid {BLUE} !important;
+            background: {PRIMARY} !important;
+            color: {NEUTRAL} !important;
+            border: 1px solid {PRIMARY} !important;
             font-weight: 600 !important;
-            font-size: .88rem !important;
-            border-radius: 8px !important;
-            padding: .55rem 1.1rem !important;
-            transition: all .15s;
-            box-shadow: 0 1px 2px rgba(0,0,0,.2);
+            font-size: .9rem !important;
+            border-radius: 10px !important;
+            padding: .6rem 1.2rem !important;
+            transition: all .2s cubic-bezier(.4,0,.2,1);
+            box-shadow: 0 1px 2px rgba(14,59,46,.10);
         }}
         .stDownloadButton button:hover, .stButton button:hover {{
-            background: {BLUE_HI} !important;
-            border-color: {BLUE_HI} !important;
+            background: {SECONDARY} !important;
+            border-color: {SECONDARY} !important;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59,130,246,.3);
+            box-shadow: 0 6px 16px rgba(14,59,46,.18);
         }}
 
         /* ===== Inputs ===== */
         input, textarea, .stTextInput input, .stDateInput input,
         [data-baseweb="select"] > div, [data-baseweb="input"] {{
-            background: {BG_CARD} !important;
+            background: {CARD_BG} !important;
             color: {TXT_MAIN} !important;
             border: 1px solid {BORDER} !important;
-            border-radius: 8px !important;
-            font-size: .88rem !important;
+            border-radius: 10px !important;
+            font-size: .9rem !important;
         }}
         input:focus, [data-baseweb="select"] > div:focus-within {{
-            border-color: {BLUE} !important;
-            box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important;
+            border-color: {SECONDARY} !important;
+            box-shadow: 0 0 0 3px rgba(31,111,84,.18) !important;
         }}
         [data-baseweb="tag"] {{
-            background: {BLUE}22 !important;
-            border: 1px solid {BLUE}66 !important;
-            color: {BLUE_HI} !important;
+            background: {SURFACE} !important;
+            border: 1px solid {BORDER} !important;
+            color: {PRIMARY} !important;
         }}
 
         /* ===== File uploader ===== */
         [data-testid="stFileUploader"] section {{
-            background: {BG_CARD} !important;
-            border: 1px dashed {BORDER} !important;
-            border-radius: 10px !important;
+            background: {CARD_BG} !important;
+            border: 1px dashed {SECONDARY} !important;
+            border-radius: 12px !important;
         }}
         [data-testid="stFileUploader"] section:hover {{
-            border-color: {BLUE} !important;
+            border-color: {PRIMARY} !important;
+            background: {SURFACE} !important;
         }}
         [data-testid="stFileUploader"] small {{ color: {TXT_DIM} !important; }}
 
         /* ===== Cards ===== */
         .insight-card {{
-            background: {BG_CARD};
+            background: {CARD_BG};
             border: 1px solid {BORDER};
-            border-left: 3px solid {BLUE};
-            border-radius: 10px;
-            padding: 16px 20px; margin-bottom: 12px;
+            border-left: 4px solid {SECONDARY};
+            border-radius: 12px;
+            padding: 18px 22px; margin-bottom: 14px;
+            box-shadow: 0 1px 3px rgba(14,59,46,.04);
+            transition: transform .15s, box-shadow .15s;
         }}
-        .insight-card.warn {{ border-left-color: {CORAL}; }}
-        .insight-card.good {{ border-left-color: {EMERALD}; }}
-        .insight-card.info {{ border-left-color: {AMBER}; }}
+        .insight-card:hover {{ transform: translateX(2px); box-shadow: 0 4px 12px rgba(14,59,46,.08); }}
+        .insight-card.warn {{ border-left-color: {ALERT}; }}
+        .insight-card.good {{ border-left-color: {SECONDARY_HI}; }}
+        .insight-card.info {{ border-left-color: {GOLD}; }}
+        .insight-card.success {{ border-left-color: {SECONDARY_HI}; background: linear-gradient(90deg, {SURFACE} 0%, {CARD_BG} 30%); }}
         .insight-card h4 {{
-            margin: 0 0 .4rem 0 !important;
-            color: {TXT_MAIN} !important;
+            margin: 0 0 .5rem 0 !important;
+            color: {PRIMARY} !important;
             text-transform: none;
-            font-size: 1rem !important;
-            font-weight: 600 !important;
+            font-size: 1.02rem !important;
+            font-weight: 700 !important;
             letter-spacing: 0;
         }}
-        .insight-card div {{ font-size: .92rem; line-height: 1.55; color: {TXT_MAIN}; }}
+        .insight-card div {{ font-size: .94rem; line-height: 1.6; color: {TXT_MAIN}; }}
 
         .stat-pill {{
-            display: inline-block; padding: .25rem .65rem; border-radius: 999px;
-            background: {BG_CARD}; border: 1px solid {BORDER};
-            color: {TXT_DIM}; font-size: .78rem; font-weight: 500;
+            display: inline-block; padding: .3rem .75rem; border-radius: 999px;
+            background: {CARD_BG}; border: 1px solid {BORDER};
+            color: {TXT_DIM}; font-size: .78rem; font-weight: 600;
             font-family: 'JetBrains Mono', monospace;
-            margin-right: .35rem;
+            margin-right: .4rem;
         }}
-        .pill-good {{ background:{EMERALD}1a; border-color:{EMERALD}66; color:{EMERALD_HI}; }}
-        .pill-warn {{ background:{CORAL}1a; border-color:{CORAL}66; color:{ROSE}; }}
-        .pill-info {{ background:{AMBER}1a; border-color:{AMBER}66; color:{AMBER}; }}
+        .pill-good {{ background:{SURFACE}; border-color:{SECONDARY}; color:{PRIMARY}; }}
+        .pill-warn {{ background:#FEE2E2; border-color:{ALERT}; color:{ALERT}; }}
+        .pill-info {{ background:#FEF3C7; border-color:{GOLD}; color:#92400E; }}
 
-        .text-emerald {{ color: {EMERALD_HI} !important; }}
-        .text-coral {{ color: {ROSE} !important; }}
-        .text-blue {{ color: {BLUE_HI} !important; }}
+        .text-emerald {{ color: {SECONDARY_HI} !important; font-weight: 600; }}
+        .text-coral {{ color: {ALERT} !important; font-weight: 600; }}
+        .text-blue {{ color: {PRIMARY} !important; font-weight: 600; }}
         .text-dim {{ color: {TXT_DIM} !important; }}
 
         .footer {{
             text-align: center; padding: 2rem 0 1rem 0;
-            color: {TXT_MUTED} !important; font-size: .78rem;
+            color: {TXT_MUTED} !important; font-size: .8rem;
             border-top: 1px solid {BORDER}; margin-top: 2rem;
         }}
-        .footer a {{ color: {BLUE_HI} !important; text-decoration: none; }}
+        .footer a {{ color: {SECONDARY_HI} !important; text-decoration: none; font-weight: 600; }}
 
         /* ===== DataFrame ===== */
         [data-testid="stDataFrame"] {{
-            background: {BG_CARD} !important;
+            background: {CARD_BG} !important;
             border: 1px solid {BORDER};
-            border-radius: 10px; overflow: hidden;
+            border-radius: 12px; overflow: hidden;
+            box-shadow: 0 1px 3px rgba(14,59,46,.04);
         }}
 
         /* ===== Dividers ===== */
         hr, [data-testid="stDivider"] {{
             border: none !important;
             height: 1px !important;
-            background: {BORDER} !important;
-            margin: 1.25rem 0 !important;
+            background: linear-gradient(90deg, transparent, {BORDER}, transparent) !important;
+            margin: 1.5rem 0 !important;
         }}
 
         /* ===== Alerts ===== */
         [data-testid="stAlert"] {{
-            background: {BG_CARD} !important;
+            background: {CARD_BG} !important;
             border: 1px solid {BORDER} !important;
-            border-radius: 10px !important;
+            border-radius: 12px !important;
         }}
 
         /* ===== Sidebar branding ===== */
         .brand-logo {{
-            display: flex; align-items: center; gap: .6rem;
-            padding: .5rem 0; margin-bottom: 1rem;
+            display: flex; align-items: center; gap: .65rem;
+            padding: .5rem 0; margin-bottom: 1.25rem;
         }}
         .brand-logo .icon {{
-            width: 38px; height: 38px;
-            background: linear-gradient(135deg, {BLUE}, {VIOLET});
-            border-radius: 9px;
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, {PRIMARY}, {SECONDARY});
+            border-radius: 11px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.3rem; box-shadow: 0 4px 12px {BLUE}44;
+            font-size: 1.4rem; box-shadow: 0 4px 14px rgba(14,59,46,.25);
+            color: {NEUTRAL};
         }}
         .brand-logo .name {{
-            font-weight: 800; font-size: 1.15rem; color: {TXT_MAIN};
-            letter-spacing: -.01em;
+            font-weight: 800; font-size: 1.2rem; color: {PRIMARY};
+            letter-spacing: -.015em;
         }}
         .brand-logo .tag {{
-            font-size: .68rem; color: {TXT_DIM};
-            text-transform: uppercase; letter-spacing: .12em;
+            font-size: .68rem; color: {SECONDARY};
+            text-transform: uppercase; letter-spacing: .14em;
             font-family: 'JetBrains Mono', monospace;
         }}
 
         ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
-        ::-webkit-scrollbar-track {{ background: {BG_DEEP}; }}
-        ::-webkit-scrollbar-thumb {{ background: {BORDER}; border-radius: 5px; }}
-        ::-webkit-scrollbar-thumb:hover {{ background: {TXT_MUTED}; }}
+        ::-webkit-scrollbar-track {{ background: {SURFACE}; }}
+        ::-webkit-scrollbar-thumb {{ background: {SURFACE_DEEP}; border-radius: 5px; }}
+        ::-webkit-scrollbar-thumb:hover {{ background: {SECONDARY}; }}
 
         /* Toggle */
         [role="switch"][aria-checked="true"] {{
-            background: {BLUE} !important;
+            background: {SECONDARY} !important;
+        }}
+
+        /* Plotly chart container — subtle card lift */
+        [data-testid="stPlotlyChart"] > div {{
+            background: {CARD_BG};
+            border: 1px solid {BORDER};
+            border-radius: 14px;
+            padding: 8px;
+            box-shadow: 0 1px 3px rgba(14,59,46,.04);
         }}
     </style>
     """,
@@ -651,12 +696,14 @@ def categorize(payee: str, amount: float) -> str:
 
 
 def enrich(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
+    df = df.copy().sort_values("date").reset_index(drop=True)
     df["category"] = [categorize(p, a) for p, a in zip(df["payee"], df["amount"])]
     df["month"] = df["date"].dt.to_period("M").dt.to_timestamp()
     df["weekday"] = df["date"].dt.day_name()
     df["abs_amount"] = df["amount"].abs()
     df["type"] = np.where(df["amount"] > 0, "Income", "Expense")
+    # Running balance (treat first txn as zero baseline)
+    df["running_balance"] = df["amount"].cumsum()
     return df
 
 
@@ -664,16 +711,21 @@ def enrich(df: pd.DataFrame) -> pd.DataFrame:
 # Subscription detector
 # ============================================================
 def detect_subscriptions(df: pd.DataFrame) -> pd.DataFrame:
+    """Detect recurring charges. Two strategies:
+       (1) Repeat-payee with stable cadence (works on 30+ day windows)
+       (2) Keyword fallback for single-month uploads (catches Netflix etc.)"""
     exp = df[df["amount"] < 0].copy()
     if exp.empty: return pd.DataFrame()
     exp["payee_norm"] = exp["payee"].apply(_normalize)
     out = []
+
+    # Strategy 1: cadence-based detection
     for _, g in exp.groupby("payee_norm"):
         if len(g) < 2: continue
         g = g.sort_values("date")
         deltas = g["date"].diff().dt.days.dropna()
         if deltas.empty: continue
-        gap = deltas.median()
+        gap = float(deltas.median())
         if not (5 <= gap <= 35 or 85 <= gap <= 95): continue
         amts = g["amount"].abs()
         if amts.std() / (amts.mean() + 1e-9) > 0.25: continue
@@ -683,11 +735,34 @@ def detect_subscriptions(df: pd.DataFrame) -> pd.DataFrame:
         out.append({
             "Merchant": g["payee"].iloc[-1],
             "Cadence": cadence,
-            "Avg Charge": amts.mean(),
+            "Avg Charge": float(amts.mean()),
             "Last Charged": g["date"].max(),
-            "Charges": len(g),
-            "Annual Cost": amts.mean() * mult,
+            "Charges": int(len(g)),
+            "Annual Cost": float(amts.mean() * mult),
+            "Detected By": "Cadence",
         })
+
+    # Strategy 2: keyword fallback (catches single-month uploads)
+    seen = {row["Merchant"].lower() for row in out}
+    sub_kw = [k for _, kws in CATEGORY_RULES if _ == "Subscriptions"  # noqa: E741
+              for k in kws]
+    sub_kw = [k for cat, kws in CATEGORY_RULES if cat == "Subscriptions" for k in kws]
+    for _, g in exp.groupby("payee_norm"):
+        merchant = g["payee"].iloc[-1]
+        if merchant.lower() in seen: continue
+        p = _normalize(merchant)
+        if not any(k in p for k in sub_kw): continue
+        amts = g["amount"].abs()
+        out.append({
+            "Merchant": merchant,
+            "Cadence": "Monthly (est)",
+            "Avg Charge": float(amts.mean()),
+            "Last Charged": g["date"].max(),
+            "Charges": int(len(g)),
+            "Annual Cost": float(amts.mean() * 12),
+            "Detected By": "Keyword",
+        })
+
     return (pd.DataFrame(out).sort_values("Annual Cost", ascending=False).reset_index(drop=True)
             if out else pd.DataFrame())
 
@@ -696,65 +771,130 @@ def detect_subscriptions(df: pd.DataFrame) -> pd.DataFrame:
 # Health Score + Reasoning
 # ============================================================
 def compute_health(df: pd.DataFrame) -> dict:
+    """Honest financial health score.
+
+    Key fixes vs naïve version:
+      • Transfers / unverified income are excluded from real income & expenses
+      • Monthly figures use **actual day-span** (not number of calendar months)
+      • Stability re-weights when there are <2 full months of data
+      • Renamed Runway → Savings Buffer (it's a ratio, not actual emergency runway)
+    """
     if df.empty:
         return {"score": 0, "components": {}, "metrics": {}, "reasoning": []}
-    income = df.loc[df["amount"] > 0, "amount"].sum()
-    expenses = -df.loc[df["amount"] < 0, "amount"].sum()
-    net = income - expenses
-    monthly = df.set_index("date").resample("ME")["amount"].sum()
-    months = max(1, len(monthly))
-    monthly_expense = expenses / months if months else expenses
 
+    # --- Real income & expenses (exclude transfers + unverified income) ---
+    spend_mask = df["amount"] < 0
+    real_spend_mask = spend_mask & ~df["category"].isin(NON_SPEND_CATEGORIES)
+    income_mask = (df["amount"] > 0) & (df["category"] == "Income")
+
+    income = float(df.loc[income_mask, "amount"].sum())
+    expenses = float(-df.loc[real_spend_mask, "amount"].sum())
+    transfers = float(df.loc[df["category"] == "Transfers", "amount"].abs().sum())
+    unverified_income = float(df.loc[df["category"] == "Income (unverified)", "amount"].sum())
+    net = income - expenses
+
+    # --- Real day-span based "per month" math ---
+    days = max(1, (df["date"].max() - df["date"].min()).days + 1)
+    months_span = days / 30.4375  # average month length
+    monthly_expense = expenses / months_span if months_span > 0 else expenses
+    monthly_income  = income   / months_span if months_span > 0 else income
+
+    # --- Component scores ---
     ratio = expenses / income if income > 0 else 1.0
     e_score = 1.0 if ratio <= 0.5 else 0.0 if ratio >= 1.0 else 1.0 - (ratio - 0.5) / 0.5
+
     sr = (net / income) if income > 0 else 0.0
-    s_score = 1.0 if sr >= 0.15 else max(0.0, sr / 0.15)
-    if len(monthly) >= 2 and monthly.abs().mean() > 0:
-        cv = monthly.std() / (monthly.abs().mean() + 1e-9)
+    s_score = 1.0 if sr >= 0.15 else max(0.0, sr / 0.15) if sr > 0 else 0.0
+
+    # Use **net** monthly (not raw amount) for stability so transfers don't poison it
+    monthly_net = (df.loc[~df["category"].isin({"Transfers"})]
+                     .set_index("date")
+                     .resample("ME")["amount"].sum())
+    months = max(1, len(monthly_net))
+    have_stability = len(monthly_net) >= 2 and monthly_net.abs().mean() > 0
+    if have_stability:
+        cv = float(monthly_net.std() / (monthly_net.abs().mean() + 1e-9))
         st_score = max(0.0, 1.0 - min(cv, 1.0))
     else:
-        st_score, cv = 0.5, 0.0
-    runway = (net / monthly_expense) if monthly_expense > 0 else 0
-    r_score = 1.0 if runway >= 3 else max(0.0, runway / 3)
+        cv, st_score = 0.0, None  # signal: not enough data
 
-    score = round((0.40*e_score + 0.30*s_score + 0.20*st_score + 0.10*r_score) * 100, 1)
+    buffer_months = (net / monthly_expense) if monthly_expense > 0 else 0.0
+    r_score = 1.0 if buffer_months >= 3 else max(0.0, buffer_months / 3)
+
+    # --- Dynamic re-weighting when stability is unmeasurable ---
+    if st_score is None:
+        # redistribute the 20% stability weight onto expense-ratio (12) + savings-rate (8)
+        weights = {"e": 0.52, "s": 0.38, "st": 0.0, "r": 0.10}
+        st_display, cv_display = 0, 0.0
+    else:
+        weights = {"e": 0.40, "s": 0.30, "st": 0.20, "r": 0.10}
+        st_display, cv_display = round(st_score * 100, 1), cv
+
+    score = round((weights["e"]*e_score + weights["s"]*s_score
+                   + weights["st"]*(st_score or 0) + weights["r"]*r_score) * 100, 1)
+
+    # --- Plain-English explanations ---
+    if ratio < 0.5:
+        e_txt = "Excellent — well under the 50% ceiling. Disposable income is healthy."
+    elif ratio >= 1.0:
+        e_txt = f"🚨 Spending **${expenses-income:,.0f}** more than earned. Every dollar in is going out."
+    else:
+        e_txt = f"Above the 50% target. Trimming **${(expenses-income*0.5):,.0f}** lands you on the ideal."
+
+    if sr >= 0.15:
+        s_txt = "Building wealth on autopilot. Consider directing surplus to investments."
+    elif sr > 0:
+        s_txt = f"Saving **{sr*100:.1f}%** of income. Need **${(income*0.15 - net):,.0f}** more in net to hit the 15% target."
+    else:
+        s_txt = f"Negative savings — drawing down by **${-net:,.0f}** over this period."
+
+    if st_score is None:
+        st_txt = (f"Need at least 2 full months of data to gauge stability. "
+                  f"Currently spans **{months_span:.1f} months** — keep uploading.")
+    elif cv < 0.3:
+        st_txt = f"Monthly cashflow is rock-solid (CV **{cv:.2f}**). Predictable budgeting."
+    elif cv < 0.7:
+        st_txt = f"Some swings (CV **{cv:.2f}**). Maintain a buffer for variable months."
+    else:
+        st_txt = f"Highly volatile (CV **{cv:.2f}**) — irregular income or lumpy bills are stressing the budget."
+
+    if buffer_months >= 3:
+        r_txt = f"Net surplus would cover **{buffer_months:.1f} months** of spend. Solid cushion."
+    elif buffer_months > 0:
+        r_txt = f"Surplus covers only **{buffer_months:.1f} months** of spend. Build to 3+ months."
+    else:
+        r_txt = "No surplus to bank — focus on reducing the largest expense category first."
+
     reasoning = [
-        {"name":"Expense Ratio","weight":40,"score":round(e_score*100,1),
-         "metric":f"{ratio*100:.1f}%","ideal":"< 50%",
-         "explanation": (f"You're spending **{ratio*100:.1f}%** of your income. " +
-            ("Excellent — well under the 50% ceiling." if ratio < 0.5
-             else "🚨 Above 100% — every dollar earned is consumed." if ratio >= 1.0
-             else f"Above the 50% target. Cutting expenses by **${(expenses-income*0.5):,.0f}** lands you on the ideal."))},
-        {"name":"Savings Rate","weight":30,"score":round(s_score*100,1),
-         "metric":f"{sr*100:.1f}%","ideal":"≥ 15%",
-         "explanation": (f"Net savings rate is **{sr*100:.1f}%**. " +
-            ("Building wealth on autopilot." if sr >= 0.15
-             else f"Need an extra **${(income*0.15 - net):,.0f}** in net to hit 15%."))},
-        {"name":"Cashflow Stability","weight":20,"score":round(st_score*100,1),
-         "metric":f"CV {cv:.2f}","ideal":"low variance",
-         "explanation": (f"Monthly cashflow CV = **{cv:.2f}** " +
-            ("(rock-solid)." if cv < 0.3
-             else "(some swings — keep a buffer)." if cv < 0.7
-             else "(highly volatile — irregular income or lumpy bills)."))},
-        {"name":"Runway","weight":10,"score":round(r_score*100,1),
-         "metric":f"{runway:.1f} mo","ideal":"≥ 3 mo",
-         "explanation": (f"Net buffer covers **{runway:.1f} months** of expenses. " +
-            ("Solid emergency cushion." if runway >= 3 else "Below the 3-month minimum."))},
+        {"name":"Expense Ratio","weight":int(weights["e"]*100),"score":round(e_score*100,1),
+         "metric":f"{ratio*100:.1f}%","ideal":"< 50%","explanation":e_txt},
+        {"name":"Savings Rate","weight":int(weights["s"]*100),"score":round(s_score*100,1),
+         "metric":f"{sr*100:.1f}%","ideal":"≥ 15%","explanation":s_txt},
+        {"name":"Cashflow Stability","weight":int(weights["st"]*100),"score":st_display,
+         "metric":(f"CV {cv:.2f}" if st_score is not None else "n/a"),
+         "ideal":"low variance","explanation":st_txt},
+        {"name":"Savings Buffer","weight":int(weights["r"]*100),"score":round(r_score*100,1),
+         "metric":f"{buffer_months:.1f} mo","ideal":"≥ 3 mo","explanation":r_txt},
     ]
     return {
         "score": score,
         "components": {r["name"]: r["score"] for r in reasoning},
-        "metrics": {"income":income,"expenses":expenses,"net":net,
-                    "monthly_expense":monthly_expense,"savings_rate":sr,
-                    "expense_ratio":ratio,"runway_months":runway,"monthly_count":months},
+        "metrics": {
+            "income": income, "expenses": expenses, "net": net,
+            "transfers": transfers, "unverified_income": unverified_income,
+            "monthly_expense": monthly_expense, "monthly_income": monthly_income,
+            "savings_rate": sr, "expense_ratio": ratio,
+            "buffer_months": buffer_months, "runway_months": buffer_months,  # back-compat alias
+            "monthly_count": months, "days_span": days, "months_span": months_span,
+        },
         "reasoning": reasoning,
     }
 
 
 def score_band(s: float) -> tuple[str, str]:
-    if s < 40: return "Critical", CORAL
-    if s < 70: return "Fair", AMBER
-    return "Strong", EMERALD
+    if s < 40: return "Critical", ALERT
+    if s < 70: return "Fair", GOLD
+    return "Strong", SECONDARY_HI
 
 
 # ============================================================
@@ -870,7 +1010,7 @@ def _fallback_narrative(s: dict, err: Optional[str] = None) -> str:
     band, _ = score_band(s["score"])
     sr, er = s["savings_rate_pct"], s["expense_ratio_pct"]
     top = list(s["top_categories"].items())[:3]
-    note = f"\n\n_AI coach offline — using rule-based memo{f' ({err})' if err else ''}. Set `OLLAMA_URL` (default `http://localhost:11434`) and `OLLAMA_MODEL` (default `llama3.1:8b`) to enable live coaching._"
+    note = f"\n\n_AI coach offline — using rule-based memo{f' ({err})' if err else ''}. Set `OLLAMA_URL` (default `http://localhost:11434`) and `OLLAMA_MODEL` (default `llama3:latest`) to enable live coaching._"
     lines = [
         f"### {band} · Score {s['score']}/100", "",
         "**Where you stand**",
@@ -951,9 +1091,9 @@ with st.sidebar:
     use_demo = st.toggle("Use demo data", value=not uploaded)
 
     st.markdown(
-        f"<div style='margin-top:1rem;padding:.85rem;border:1px solid {BORDER};"
-        f"border-radius:10px;background:{BG_CARD};'>"
-        f"<div style='color:{TXT_DIM};font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;'>Supported</div>"
+        f"<div style='margin-top:1rem;padding:.95rem;border:1px solid {BORDER};"
+        f"border-radius:12px;background:{CARD_BG};'>"
+        f"<div style='color:{SECONDARY};font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700;'>Supported</div>"
         f"<div style='font-size:.85rem;color:{TXT_MAIN};margin-top:.4rem;line-height:1.7;'>"
         "✓ CSV (auto-detect delimiter)<br>"
         "✓ Excel (.xlsx, .xls)<br>"
@@ -963,18 +1103,18 @@ with st.sidebar:
     )
 
     st.markdown(
-        f"<div style='margin-top:1.25rem;padding:1rem;border-radius:10px;"
-        f"background:linear-gradient(135deg,{BLUE}15,{VIOLET}10);"
-        f"border:1px solid {BLUE}55;'>"
-        f"<div style='font-weight:700;color:{BLUE_HI};font-size:.8rem;"
-        "letter-spacing:.05em;text-transform:uppercase;'>ClearLedger Pro</div>"
-        f"<div style='color:{TXT_MAIN};margin:.5rem 0;font-size:.85rem;line-height:1.5;'>"
+        f"<div style='margin-top:1.25rem;padding:1.1rem;border-radius:12px;"
+        f"background:linear-gradient(135deg,{PRIMARY},{SECONDARY});"
+        f"border:1px solid {PRIMARY};box-shadow:0 8px 22px rgba(14,59,46,.18);'>"
+        f"<div style='font-weight:700;color:{SURFACE};font-size:.78rem;"
+        "letter-spacing:.1em;text-transform:uppercase;'>ClearLedger Pro</div>"
+        f"<div style='color:{NEUTRAL};margin:.55rem 0;font-size:.86rem;line-height:1.5;'>"
         "Live AI coaching · Smart alerts · Multi-account sync · PDF reports</div>"
-        f"<div style='font-size:1.6rem;font-weight:800;color:{TXT_MAIN};'>"
-        f"$9<span style='font-size:.75rem;color:{TXT_DIM};font-weight:500;'> /mo</span></div>"
-        f"<a href='#' style='display:block;margin-top:.6rem;text-align:center;padding:.55rem;"
-        f"background:{BLUE};color:white;border-radius:7px;text-decoration:none;"
-        "font-weight:600;font-size:.85rem;'>Upgrade</a>"
+        f"<div style='font-size:1.7rem;font-weight:800;color:{NEUTRAL};letter-spacing:-.02em;'>"
+        f"$9<span style='font-size:.75rem;color:{SURFACE};font-weight:500;'> /mo</span></div>"
+        f"<a href='#' style='display:block;margin-top:.7rem;text-align:center;padding:.6rem;"
+        f"background:{NEUTRAL};color:{PRIMARY};border-radius:9px;text-decoration:none;"
+        "font-weight:700;font-size:.88rem;'>Upgrade →</a>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -988,8 +1128,8 @@ with st.sidebar:
 # ============================================================
 st.markdown(
     "<h1>ClearLedger AI</h1>"
-    f"<p style='color:{TXT_DIM};font-size:1rem;margin:.25rem 0 1.25rem 0;'>"
-    "Drill into your finances. Spot leaks. Build wealth — with an AI coach.</p>",
+    f"<p style='color:{TXT_DIM};font-size:1.05rem;margin:.25rem 0 1.5rem 0;font-weight:500;'>"
+    "Honest financial wellness — built on your real cashflow, coached by AI.</p>",
     unsafe_allow_html=True,
 )
 
@@ -1079,11 +1219,11 @@ if needs_remap:
 
 if not parsed_frames:
     st.markdown(
-        f"<div style='text-align:center;padding:4rem 2rem;border:1px dashed {BORDER};"
-        f"border-radius:14px;background:{BG_CARD};'>"
-        f"<div style='font-size:3rem;'>📊</div>"
-        f"<h3 style='color:{TXT_MAIN};margin:.75rem 0;'>Upload a statement to get started</h3>"
-        f"<p style='color:{TXT_DIM};max-width:480px;margin:0 auto;'>"
+        f"<div style='text-align:center;padding:4rem 2rem;border:1px dashed {SECONDARY};"
+        f"border-radius:16px;background:{CARD_BG};box-shadow:0 1px 3px rgba(14,59,46,.04);'>"
+        f"<div style='font-size:3.4rem;'>📊</div>"
+        f"<h3 style='color:{PRIMARY};margin:.85rem 0;'>Upload a statement to get started</h3>"
+        f"<p style='color:{TXT_DIM};max-width:480px;margin:0 auto;font-size:.95rem;'>"
         "Drop a <b>CSV</b>, <b>Excel</b>, <b>OFX</b>, or <b>QFX</b> file in the sidebar — "
         "or flip on demo data to see the dashboard.</p></div>",
         unsafe_allow_html=True,
@@ -1165,53 +1305,88 @@ tab_overview, tab_spend, tab_subs, tab_insights, tab_coach, tab_data = st.tabs(
 with tab_overview:
     c1, c2 = st.columns([2, 1])
     with c1:
-        st.markdown("<h4>Monthly Cashflow</h4>", unsafe_allow_html=True)
-        monthly = (df.set_index("date").resample("ME")["amount"]
-                   .agg(income=lambda s: s[s>0].sum(), expenses=lambda s: -s[s<0].sum())
-                   .reset_index())
-        monthly["net"] = monthly["income"] - monthly["expenses"]
-        monthly["month_label"] = monthly["date"].dt.strftime("%b %Y")
+        # Auto-bucket: monthly if >=2 months, weekly otherwise, daily if <14 days
+        days_span = (df["date"].max() - df["date"].min()).days + 1
+        if days_span < 14:
+            freq, freq_label, fmt = "D", "Daily", "%b %d"
+        elif days_span < 70:
+            freq, freq_label, fmt = "W", "Weekly", "Wk %b %d"
+        else:
+            freq, freq_label, fmt = "ME", "Monthly", "%b %Y"
+        st.markdown(f"<h4>{freq_label} Cashflow</h4>", unsafe_allow_html=True)
+
+        # Exclude transfers from cashflow (they're noise, not real income/spend)
+        cashflow_df = df[~df["category"].isin({"Transfers"})].copy()
+        bucket = (cashflow_df.set_index("date").resample(freq)["amount"]
+                  .agg(income=lambda s: s[s>0].sum(), expenses=lambda s: -s[s<0].sum())
+                  .reset_index())
+        bucket["net"] = bucket["income"] - bucket["expenses"]
+        bucket["label"] = bucket["date"].dt.strftime(fmt)
+
         fig = go.Figure()
-        fig.add_bar(name="Income", x=monthly["month_label"], y=monthly["income"],
-                    marker=dict(color=EMERALD),
-                    hovertemplate="<b>%{x}</b><br>Income: $%{y:,.0f}<extra></extra>")
-        fig.add_bar(name="Expenses", x=monthly["month_label"], y=monthly["expenses"],
-                    marker=dict(color=CORAL),
-                    hovertemplate="<b>%{x}</b><br>Expenses: $%{y:,.0f}<extra></extra>")
-        fig.add_scatter(name="Net", x=monthly["month_label"], y=monthly["net"],
+        fig.add_bar(name="Income", x=bucket["label"], y=bucket["income"],
+                    marker=dict(color=SECONDARY,
+                                line=dict(color=PRIMARY, width=0.5)),
+                    hovertemplate="<b>%{x}</b><br>Income: <b>$%{y:,.0f}</b><extra></extra>")
+        fig.add_bar(name="Expenses", x=bucket["label"], y=bucket["expenses"],
+                    marker=dict(color=ALERT, opacity=.85,
+                                line=dict(color="#B91C1C", width=0.5)),
+                    hovertemplate="<b>%{x}</b><br>Expenses: <b>$%{y:,.0f}</b><extra></extra>")
+        fig.add_scatter(name="Net", x=bucket["label"], y=bucket["net"],
                         mode="lines+markers",
-                        line=dict(color=BLUE, width=3),
-                        marker=dict(size=10, color=BLUE,
-                                    line=dict(color="white", width=1.5)),
-                        hovertemplate="<b>%{x}</b><br>Net: $%{y:,.0f}<extra></extra>")
-        fig.update_layout(barmode="group", height=380,
-                          legend=dict(orientation="h", y=1.08, x=0.5, xanchor="center"))
-        st.plotly_chart(fig, use_container_width=True)
+                        line=dict(color=PRIMARY, width=3, shape="spline", smoothing=.6),
+                        marker=dict(size=11, color=PRIMARY, symbol="circle",
+                                    line=dict(color=NEUTRAL, width=2)),
+                        hovertemplate="<b>%{x}</b><br>Net: <b>$%{y:,.0f}</b><extra></extra>")
+        fig.update_layout(barmode="group", height=400,
+                          legend=dict(orientation="h", y=1.08, x=0.5, xanchor="center"),
+                          hovermode="x unified",
+                          margin=dict(t=50, b=30, l=20, r=20))
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
     with c2:
         st.markdown("<h4>Health Score</h4>", unsafe_allow_html=True)
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=health["score"],
-            number={"font":{"size":48,"color":band_color,"family":"Inter"},
-                    "suffix":"<span style='font-size:14px;color:#94a3b8'>/100</span>"},
+            number={"font":{"size":52,"color":band_color,"family":"Inter"},
+                    "suffix":f"<span style='font-size:14px;color:{TXT_MUTED}'>/100</span>"},
             gauge={
-                "axis":{"range":[0,100],"tickcolor":TXT_DIM,"tickfont":{"color":TXT_DIM,"size":10}},
-                "bar":{"color":band_color, "thickness":0.3},
-                "bgcolor":BG_PANEL, "borderwidth":0,
+                "axis":{"range":[0,100],"tickcolor":TXT_MUTED,
+                        "tickfont":{"color":TXT_DIM,"size":10},
+                        "tickwidth":1,"ticklen":4},
+                "bar":{"color":band_color, "thickness":0.32,
+                       "line":{"color":NEUTRAL,"width":2}},
+                "bgcolor":SURFACE, "borderwidth":0,
                 "steps":[
-                    {"range":[0,40],"color":"rgba(244,63,94,0.20)"},
-                    {"range":[40,70],"color":"rgba(245,158,11,0.20)"},
-                    {"range":[70,100],"color":"rgba(16,185,129,0.20)"},
+                    {"range":[0,40],"color":"rgba(239,68,68,0.18)"},
+                    {"range":[40,70],"color":"rgba(184,148,90,0.20)"},
+                    {"range":[70,100],"color":"rgba(31,111,84,0.22)"},
                 ],
-                "threshold":{"line":{"color":"white","width":3},"thickness":.7,"value":health["score"]},
+                "threshold":{"line":{"color":PRIMARY,"width":4},"thickness":.78,"value":health["score"]},
             },
         ))
-        fig.update_layout(height=280, margin=dict(t=15,b=10,l=20,r=20))
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(height=290, margin=dict(t=20,b=10,l=20,r=20),
+                          paper_bgcolor=CARD_BG)
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
         st.markdown(
-            f"<div style='text-align:center;font-weight:600;color:{band_color};"
-            f"font-size:1rem;letter-spacing:.05em;'>{band}</div>",
+            f"<div style='text-align:center;font-weight:700;color:{band_color};"
+            f"font-size:1.05rem;letter-spacing:.06em;text-transform:uppercase;margin-top:-.5rem;'>{band}</div>",
+            unsafe_allow_html=True,
+        )
+
+    # Headline numbers + transparency about excluded items
+    if metrics.get("transfers", 0) > 0 or metrics.get("unverified_income", 0) > 0:
+        notes = []
+        if metrics.get("transfers", 0) > 0:
+            notes.append(f"<b>${metrics['transfers']:,.0f}</b> in transfers excluded")
+        if metrics.get("unverified_income", 0) > 0:
+            notes.append(f"<b>${metrics['unverified_income']:,.0f}</b> in unverified income held aside")
+        st.markdown(
+            f"<div style='margin:.25rem 0 1rem 0;padding:.6rem .9rem;background:{SURFACE};"
+            f"border-left:3px solid {SECONDARY};border-radius:8px;font-size:.85rem;color:{PRIMARY};'>"
+            f"📋 <b>For accuracy:</b> " + " · ".join(notes) +
+            ". These don't count toward the health score." + "</div>",
             unsafe_allow_html=True,
         )
 
@@ -1219,61 +1394,100 @@ with tab_overview:
     rcols = st.columns(4)
     for i, comp in enumerate(health["reasoning"]):
         with rcols[i]:
-            cc = EMERALD if comp["score"] >= 70 else AMBER if comp["score"] >= 40 else CORAL
+            cc = SECONDARY_HI if comp["score"] >= 70 else GOLD if comp["score"] >= 40 else ALERT
             st.markdown(
                 f"""<div class='insight-card' style='border-left-color:{cc};'>
                     <div style='display:flex;justify-content:space-between;align-items:center;'>
-                        <span style='font-weight:600;font-size:.9rem;'>{comp['name']}</span>
-                        <span style='color:{TXT_MUTED};font-size:.75rem;font-family:JetBrains Mono;'>{comp['weight']}%</span>
+                        <span style='font-weight:700;font-size:.92rem;color:{PRIMARY};'>{comp['name']}</span>
+                        <span style='color:{TXT_MUTED};font-size:.72rem;font-family:JetBrains Mono;font-weight:600;'>{comp['weight']}%</span>
                     </div>
-                    <div style='font-size:1.75rem;font-weight:700;color:{cc};margin:.35rem 0;'>{comp['score']}<span style='font-size:.85rem;color:{TXT_MUTED};font-weight:500;'>/100</span></div>
-                    <div style='color:{TXT_DIM};font-family:JetBrains Mono;font-size:.75rem;letter-spacing:.02em;'>
+                    <div style='font-size:1.85rem;font-weight:800;color:{cc};margin:.4rem 0;letter-spacing:-.02em;'>{comp['score']}<span style='font-size:.85rem;color:{TXT_MUTED};font-weight:500;'>/100</span></div>
+                    <div style='color:{TXT_DIM};font-family:JetBrains Mono;font-size:.74rem;letter-spacing:.02em;'>
                         {comp['metric']} · ideal {comp['ideal']}
                     </div>
-                    <div style='margin-top:.55rem;font-size:.85rem;line-height:1.5;color:{TXT_MAIN};'>{comp['explanation']}</div>
+                    <div style='margin-top:.6rem;font-size:.86rem;line-height:1.55;color:{TXT_MAIN};'>{comp['explanation']}</div>
                 </div>""",
                 unsafe_allow_html=True,
             )
 
+    # Running balance chart — gives a clear "where am I trending?" picture
+    st.markdown("<h4>Cumulative cash position</h4>", unsafe_allow_html=True)
+    bal = df.sort_values("date")[["date", "running_balance"]].copy()
+    fig = go.Figure()
+    fig.add_scatter(x=bal["date"], y=bal["running_balance"], mode="lines",
+                    fill="tozeroy",
+                    line=dict(color=PRIMARY, width=2.5, shape="spline", smoothing=.4),
+                    fillcolor="rgba(31,111,84,0.18)",
+                    hovertemplate="<b>%{x|%b %d, %Y}</b><br>Position: <b>$%{y:,.0f}</b><extra></extra>")
+    fig.add_hline(y=0, line=dict(color=ALERT, width=1, dash="dot"),
+                  annotation_text="break-even", annotation_position="bottom right",
+                  annotation_font=dict(color=ALERT, size=10))
+    fig.update_layout(height=280, margin=dict(t=15,b=15),
+                      hovermode="x unified",
+                      xaxis=dict(rangeslider=dict(visible=True, thickness=.04, bgcolor=SURFACE)))
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
 # ---------- SPENDING ----------
 with tab_spend:
-    exp = df[df["amount"] < 0].copy()
+    exp = df[(df["amount"] < 0) & (~df["category"].isin(NON_SPEND_CATEGORIES))].copy()
     if exp.empty:
-        st.info("No expenses in current filter.")
+        st.info("No real expenses in current filter (transfers and income are excluded).")
     else:
         sc1, sc2 = st.columns(2)
         with sc1:
             st.markdown("<h4>Spending by category</h4>", unsafe_allow_html=True)
             cat_sum = exp.groupby("category")["abs_amount"].sum().sort_values(ascending=False).reset_index()
-            fig = px.pie(cat_sum, values="abs_amount", names="category", hole=0.6)
-            fig.update_traces(textposition="outside", textinfo="label+percent",
-                              marker=dict(line=dict(color=BG_PANEL, width=2)),
-                              hovertemplate="<b>%{label}</b><br>$%{value:,.0f} (%{percent})<extra></extra>")
-            fig.update_layout(height=400, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            cat_sum["pct"] = cat_sum["abs_amount"] / cat_sum["abs_amount"].sum() * 100
+            fig = go.Figure(go.Pie(
+                labels=cat_sum["category"], values=cat_sum["abs_amount"],
+                hole=0.62, sort=False,
+                marker=dict(colors=CHART_PALETTE,
+                            line=dict(color=CARD_BG, width=2)),
+                textposition="outside", textinfo="label+percent",
+                textfont=dict(family="Inter", size=11, color=PRIMARY),
+                hovertemplate="<b>%{label}</b><br>$%{value:,.0f}<br>%{percent}<extra></extra>",
+                pull=[0.04 if i == 0 else 0 for i in range(len(cat_sum))],
+            ))
+            # Center total
+            fig.update_layout(
+                height=420, showlegend=False, margin=dict(t=10,b=10),
+                annotations=[dict(text=f"<b>${cat_sum['abs_amount'].sum():,.0f}</b><br>"
+                                       f"<span style='font-size:.7rem;color:{TXT_DIM}'>total spend</span>",
+                                  x=0.5, y=0.5, font=dict(size=18, color=PRIMARY, family="Inter"),
+                                  showarrow=False)],
+            )
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
         with sc2:
             st.markdown("<h4>Top merchants</h4>", unsafe_allow_html=True)
             top_m = exp.groupby("payee")["abs_amount"].sum().nlargest(12).sort_values().reset_index()
+            top_m["pct"] = top_m["abs_amount"] / exp["abs_amount"].sum() * 100
             fig = go.Figure(go.Bar(
                 x=top_m["abs_amount"], y=top_m["payee"], orientation="h",
-                marker=dict(color=BLUE),
-                hovertemplate="<b>%{y}</b><br>$%{x:,.0f}<extra></extra>",
+                marker=dict(
+                    color=top_m["abs_amount"],
+                    colorscale=[[0, SURFACE_HI], [0.5, SECONDARY], [1, PRIMARY]],
+                    line=dict(color=PRIMARY, width=0.5),
+                ),
+                customdata=top_m["pct"],
+                hovertemplate="<b>%{y}</b><br>$%{x:,.0f}<br>%{customdata:.1f}% of spend<extra></extra>",
                 text=[f"${v:,.0f}" for v in top_m["abs_amount"]],
-                textposition="outside", textfont=dict(color=TXT_DIM, size=11),
+                textposition="outside", textfont=dict(color=PRIMARY, size=11, family="Inter"),
             ))
-            fig.update_layout(height=400, xaxis_title=None, yaxis_title=None)
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(height=420, xaxis_title=None, yaxis_title=None,
+                              margin=dict(t=10,b=10,l=10,r=60))
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
         st.markdown("<h4>Drill-down: category → merchant</h4>", unsafe_allow_html=True)
         tree = exp.groupby(["category","payee"])["abs_amount"].sum().reset_index()
         fig = px.treemap(tree, path=["category","payee"], values="abs_amount",
                          color="abs_amount",
-                         color_continuous_scale=[[0,BG_PANEL],[.5,BLUE],[1,VIOLET]])
-        fig.update_traces(marker=dict(line=dict(color=BG_DEEP, width=2)),
-                          hovertemplate="<b>%{label}</b><br>$%{value:,.0f}<extra></extra>")
+                         color_continuous_scale=[[0,SURFACE],[.5,SECONDARY],[1,PRIMARY]])
+        fig.update_traces(marker=dict(line=dict(color=NEUTRAL, width=2.5), cornerradius=4),
+                          hovertemplate="<b>%{label}</b><br>$%{value:,.0f}<br>%{percentParent} of category<extra></extra>",
+                          textfont=dict(family="Inter", size=12, color=NEUTRAL))
         fig.update_layout(height=480, margin=dict(t=10,b=10), coloraxis_showscale=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
         st.markdown("<h4>Inspect a category</h4>", unsafe_allow_html=True)
         drill_cat = st.selectbox("Category", cat_sum["category"].tolist(),
@@ -1285,15 +1499,20 @@ with tab_spend:
         d3.metric("Avg per txn", f"${drill_df['abs_amount'].mean():,.2f}")
         d4.metric("Largest", f"${drill_df['abs_amount'].max():,.2f}")
 
-        trend = drill_df.set_index("date").resample("W")["abs_amount"].sum().reset_index()
+        # Auto-bucket trend
+        d_span = (drill_df["date"].max() - drill_df["date"].min()).days + 1
+        t_freq, t_label = ("D", "Daily") if d_span < 21 else ("W", "Weekly")
+        trend = drill_df.set_index("date").resample(t_freq)["abs_amount"].sum().reset_index()
         fig = go.Figure()
-        fig.add_scatter(x=trend["date"], y=trend["abs_amount"], mode="lines",
-                        fill="tozeroy", line=dict(color=BLUE, width=2.5),
-                        fillcolor="rgba(59,130,246,0.20)",
-                        hovertemplate="<b>Week of %{x|%b %d}</b><br>$%{y:,.0f}<extra></extra>")
-        fig.update_layout(height=260, title=f"Weekly spend · {drill_cat}",
-                          margin=dict(t=40,b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        fig.add_scatter(x=trend["date"], y=trend["abs_amount"], mode="lines+markers",
+                        fill="tozeroy",
+                        line=dict(color=SECONDARY, width=2.5, shape="spline", smoothing=.5),
+                        marker=dict(size=8, color=PRIMARY, line=dict(color=NEUTRAL, width=1.5)),
+                        fillcolor="rgba(31,111,84,0.20)",
+                        hovertemplate="<b>%{x|%b %d, %Y}</b><br>$%{y:,.0f}<extra></extra>")
+        fig.update_layout(height=280, title=f"{t_label} spend · {drill_cat}",
+                          margin=dict(t=45,b=10), hovermode="x unified")
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
         st.dataframe(
             drill_df[["date","payee","amount","source"]].rename(
@@ -1308,7 +1527,7 @@ with tab_spend:
 # ---------- SUBSCRIPTIONS ----------
 with tab_subs:
     if subs.empty:
-        st.info("No recurring charges detected. Try a longer date range.")
+        st.info("No recurring charges detected. Try a longer date range or upload more months.")
     else:
         annual = subs["Annual Cost"].sum()
         s1, s2, s3, s4 = st.columns(4)
@@ -1320,18 +1539,29 @@ with tab_subs:
         st.markdown("<h4>Recurring charges</h4>", unsafe_allow_html=True)
         fig = go.Figure(go.Bar(
             x=subs["Annual Cost"], y=subs["Merchant"], orientation="h",
-            marker=dict(color=VIOLET),
+            marker=dict(
+                color=subs["Annual Cost"],
+                colorscale=[[0, SURFACE_HI], [.5, SECONDARY], [1, PRIMARY]],
+                line=dict(color=PRIMARY, width=0.5),
+            ),
             text=[f"${v:,.0f}/yr · {c}" for v, c in zip(subs["Annual Cost"], subs["Cadence"])],
-            textposition="outside", textfont=dict(color=TXT_DIM, size=11),
-            hovertemplate="<b>%{y}</b><br>$%{x:,.0f}/yr<extra></extra>",
+            textposition="outside", textfont=dict(color=PRIMARY, size=11, family="Inter"),
+            customdata=np.stack([subs["Cadence"], subs["Charges"], subs["Avg Charge"]], axis=-1),
+            hovertemplate=("<b>%{y}</b><br>"
+                           "Annual: <b>$%{x:,.0f}</b><br>"
+                           "Cadence: %{customdata[0]}<br>"
+                           "Charges seen: %{customdata[1]}<br>"
+                           "Avg charge: $%{customdata[2]:,.2f}<extra></extra>"),
         ))
-        fig.update_layout(height=max(280, len(subs)*36),
+        fig.update_layout(height=max(300, len(subs)*38),
                           xaxis_title=None, yaxis_title=None,
-                          yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig, use_container_width=True)
+                          yaxis=dict(autorange="reversed"),
+                          margin=dict(t=15, b=15, l=10, r=80))
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
         st.dataframe(
-            subs, hide_index=True, use_container_width=True,
+            subs.rename(columns={"Detected By": "Detection"}),
+            hide_index=True, use_container_width=True,
             column_config={
                 "Avg Charge": st.column_config.NumberColumn(format="$%.2f"),
                 "Annual Cost": st.column_config.NumberColumn(format="$%.2f"),
@@ -1368,7 +1598,7 @@ with tab_insights:
         )
 
     st.markdown("<h4>Spending heatmap · day-of-week × week</h4>", unsafe_allow_html=True)
-    exp = df[df["amount"] < 0].copy()
+    exp = df[(df["amount"] < 0) & (~df["category"].isin(NON_SPEND_CATEGORIES))].copy()
     if not exp.empty:
         exp["dow"] = exp["date"].dt.day_name()
         exp["week"] = exp["date"].dt.to_period("W").dt.start_time
@@ -1377,11 +1607,14 @@ with tab_insights:
         order = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
         heat = heat.reindex([d for d in order if d in heat.index])
         fig = px.imshow(heat, aspect="auto",
-                        color_continuous_scale=[[0,BG_PANEL],[.5,BLUE],[1,VIOLET]],
+                        color_continuous_scale=[[0,NEUTRAL],[.3,SURFACE],[.7,SECONDARY],[1,PRIMARY]],
                         labels=dict(color="$ spent"))
-        fig.update_traces(hovertemplate="<b>%{y}</b><br>Week %{x}<br>$%{z:,.0f}<extra></extra>")
-        fig.update_layout(height=320, margin=dict(t=10,b=10))
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_traces(hovertemplate="<b>%{y}</b><br>Week of %{x|%b %d}<br>$%{z:,.0f}<extra></extra>",
+                          xgap=2, ygap=2)
+        fig.update_layout(height=340, margin=dict(t=10,b=10),
+                          coloraxis_colorbar=dict(thickness=12, len=.7,
+                                                   tickfont=dict(color=TXT_DIM, size=10)))
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ---------- AI COACH ----------
 with tab_coach:
@@ -1420,15 +1653,21 @@ with tab_coach:
 # ---------- TRANSACTIONS ----------
 with tab_data:
     st.markdown(f"<h4>{len(df):,} transactions</h4>", unsafe_allow_html=True)
-    show = df.sort_values("date", ascending=False)[
-        ["date","payee","category","amount","source"]
+    # Compute running balance over the *filtered* set (chronological), then display newest first
+    show = df.sort_values("date").copy()
+    show["Running Balance"] = show["amount"].cumsum()
+    show = show.sort_values("date", ascending=False)[
+        ["date","payee","category","amount","source","Running Balance"]
     ].rename(columns={"date":"Date","payee":"Payee","category":"Category",
                       "amount":"Amount","source":"Source"})
     st.dataframe(
         show, hide_index=True, use_container_width=True, height=560,
         column_config={
             "Date": st.column_config.DateColumn(format="YYYY-MM-DD"),
+            "Payee": st.column_config.TextColumn(width="large"),
+            "Category": st.column_config.TextColumn(width="medium"),
             "Amount": st.column_config.NumberColumn(format="$%.2f"),
+            "Running Balance": st.column_config.NumberColumn(format="$%.2f"),
         },
     )
     csv_bytes = df.to_csv(index=False).encode("utf-8")
