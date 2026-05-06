@@ -2,20 +2,21 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, PieChart, Repeat2, Sparkles, ListChecks, X } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useStore } from '@/lib/store';
 import HealthGauge from './HealthGauge';
 import MetricStrip from './MetricStrip';
-import {
-  CashflowChart,
-  CategoryDonut,
-  TopCategoriesBar,
-  RunningBalance,
-  TopExpensesList,
-} from './Charts';
-import SubscriptionsTab from './SubscriptionsTab';
-import CoachPanel from './CoachPanel';
-import TransactionsTab from './TransactionsTab';
 import InsightsList from './InsightsList';
+
+// Code-split heavy Recharts/Markdown bundles so the cockpit paints fast.
+const CashflowChart      = dynamic(() => import('./Charts').then(m => m.CashflowChart),      { ssr: false });
+const CategoryDonut      = dynamic(() => import('./Charts').then(m => m.CategoryDonut),      { ssr: false });
+const TopCategoriesBar   = dynamic(() => import('./Charts').then(m => m.TopCategoriesBar),   { ssr: false });
+const RunningBalance     = dynamic(() => import('./Charts').then(m => m.RunningBalance),     { ssr: false });
+const TopExpensesList    = dynamic(() => import('./Charts').then(m => m.TopExpensesList),    { ssr: false });
+const SubscriptionsTab   = dynamic(() => import('./SubscriptionsTab'),                       { ssr: false });
+const CoachPanel         = dynamic(() => import('./CoachPanel'),                             { ssr: false });
+const TransactionsTab    = dynamic(() => import('./TransactionsTab'),                        { ssr: false });
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },

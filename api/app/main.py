@@ -4,10 +4,11 @@ Powered by PLEX Automation
 from __future__ import annotations
 
 import os
+from functools import lru_cache
 from typing import Optional
 
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -231,10 +232,27 @@ def healthcheck():
     return {"status": "ok", "service": "iron-star-ledger-api"}
 
 
+@lru_cache(maxsize=1)
+def _cached_demo_payload() -> str:
+    """Build the demo response once and cache the JSON-serialized body.
+    Subsequent calls return the cached payload — no recomputation, no
+    pandas allocation, no JSON-encoding overhead. This dramatically
+    speeds up the "Launch Demo" path."""
+    df = load_demo()
+    return _build_response(df).model_dump_json()
+
+
 @app.get("/api/demo", response_model=AnalysisResponse)
 def demo():
-    df = load_demo()
-    return _build_response(df)
+    payload = _cached_demo_payload()
+    return Response(
+        content=payload,
+        media_type="application/json",
+        headers={
+            # Browser cache 5 min · CDN/edge cache 1 hour · serve stale while revalidating
+            "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+        },
+    )
 
 
 @app.post("/api/analyze", response_model=AnalysisResponse)
