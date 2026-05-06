@@ -1,30 +1,17 @@
 'use client';
 
 import { Canvas, useFrame, useThree, invalidate } from '@react-three/fiber';
-import {
-  Stars,
-  Trail,
-  Sparkles,
-  AdaptiveDpr,
-  AdaptiveEvents,
-  PerformanceMonitor,
-} from '@react-three/drei';
-import {
-  EffectComposer,
-  Bloom,
-  ChromaticAberration,
-  Vignette,
-  Noise,
-} from '@react-three/postprocessing';
-import { BlendFunction, KernelSize } from 'postprocessing';
-import { Suspense, useRef, useMemo, useEffect, useState } from 'react';
+import { Stars, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { KernelSize } from 'postprocessing';
+import { Suspense, useRef, useEffect, useState, Component, ReactNode } from 'react';
 import * as THREE from 'three';
 import { useStore } from '@/lib/store';
 import Earth from './Earth';
 import Moon from './Moon';
 
 // ===========================================================================
-// Device tier
+// Device tier detection
 // ===========================================================================
 type Tier = 'mobile' | 'tablet' | 'desktop';
 function useDeviceTier(): Tier {
@@ -45,153 +32,63 @@ function useDeviceTier(): Tier {
 }
 
 // ===========================================================================
-// The Sun — bright sphere off-camera that drives bloom rim-light
+// Sun — bright sphere off-camera that creates rim lighting on Earth
 // ===========================================================================
 function Sun({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
       <mesh>
-        <sphereGeometry args={[2.6, 32, 32]} />
-        <meshBasicMaterial color="#FFF1C2" toneMapped={false} />
+        <sphereGeometry args={[3.2, 32, 32]} />
+        <meshBasicMaterial color="#FFF7E0" toneMapped={false} />
       </mesh>
-      {/* Inner corona */}
-      <mesh scale={2.4}>
-        <sphereGeometry args={[2.6, 24, 24]} />
-        <meshBasicMaterial color="#FDE68A" transparent opacity={0.15} blending={THREE.AdditiveBlending} depthWrite={false} />
+      {/* Soft glow shell */}
+      <mesh scale={1.8}>
+        <sphereGeometry args={[3.2, 24, 24]} />
+        <meshBasicMaterial
+          color="#FDE68A"
+          transparent
+          opacity={0.18}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
       </mesh>
-      {/* Outer corona */}
-      <mesh scale={6}>
-        <sphereGeometry args={[2.6, 24, 24]} />
-        <meshBasicMaterial color="#FBBF24" transparent opacity={0.04} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      <pointLight color="#FFF7E0" intensity={2.4} distance={400} decay={1} />
-      <directionalLight color="#FFFAF0" intensity={1.6} position={[0, 0, 0]} />
+      <directionalLight color="#FFFAF0" intensity={2.6} position={[0, 0, 0]} target-position={[0, 0, -50]} />
     </group>
   );
 }
 
 // ===========================================================================
-// Comet streak (interactive cosmos ambience)
+// Camera rig — pointer parallax (rAF-throttled), invalidates on demand only
 // ===========================================================================
-function Comet({ orbit = 60, speed = 0.12, offset = 0, active = true }: { orbit?: number; speed?: number; offset?: number; active?: boolean }) {
-  const ref = useRef<THREE.Mesh>(null!);
-  useFrame((state) => {
-    if (!active || !ref.current) return;
-    const t = state.clock.elapsedTime * speed + offset;
-    ref.current.position.set(Math.cos(t) * orbit, Math.sin(t * 0.6) * 10, Math.sin(t) * orbit - 30);
-  });
-  return (
-    <Trail width={1.6} length={7} color={'#67E8F9'} attenuation={(t) => t * t}>
-      <mesh ref={ref}>
-        <sphereGeometry args={[0.16, 12, 12]} />
-        <meshBasicMaterial color="#F1F5F9" toneMapped={false} />
-      </mesh>
-    </Trail>
-  );
-}
-
-// ===========================================================================
-// Cockpit canopy — kept minimal so Earth dominates the framing
-// ===========================================================================
-function CockpitCanopy({ tier }: { tier: Tier }) {
-  const segs = tier === 'mobile' ? 32 : 64;
-  return (
-    <group>
-      {[-1.05, -0.5, 0, 0.5, 1.05].map((angle, i) => (
-        <mesh key={i} rotation={[0, angle, 0]}>
-          <torusGeometry args={[18, 0.15, 10, 80, Math.PI * 0.95]} />
-          <meshPhysicalMaterial color="#1F2937" metalness={0.95} roughness={0.22} clearcoat={0.7} />
-        </mesh>
-      ))}
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[17.9, 0.18, 10, 96]} />
-        <meshPhysicalMaterial color="#0F172A" metalness={0.92} roughness={0.28} clearcoat={0.6} />
-      </mesh>
-      <mesh position={[0, -8, -6]} rotation={[-Math.PI / 6, 0, 0]}>
-        <boxGeometry args={[18, 5, 8]} />
-        <meshPhysicalMaterial color="#0E1330" metalness={0.8} roughness={0.4} emissive="#22d3ee" emissiveIntensity={0.05} clearcoat={0.5} />
-      </mesh>
-      <mesh position={[0, -5.7, -2.2]} rotation={[-Math.PI / 6, 0, 0]}>
-        <boxGeometry args={[16, 0.04, 0.06]} />
-        <meshBasicMaterial color="#22d3ee" toneMapped={false} />
-      </mesh>
-      <mesh position={[0, -5.0, -1.2]} rotation={[-Math.PI / 6, 0, 0]}>
-        <boxGeometry args={[14, 0.04, 0.06]} />
-        <meshBasicMaterial color="#7C3AED" toneMapped={false} />
-      </mesh>
-    </group>
-  );
-}
-
-// ===========================================================================
-// Starship (only visible in exterior preflight stage)
-// ===========================================================================
-function Starship({ visible }: { visible: boolean }) {
-  const ref = useRef<THREE.Group>(null!);
-  useFrame((_, dt) => {
-    if (ref.current && visible) ref.current.rotation.y += dt * 0.05;
-  });
-  if (!visible) return null;
-  return (
-    <group ref={ref}>
-      <mesh>
-        <capsuleGeometry args={[1.2, 4, 16, 32]} />
-        <meshPhysicalMaterial color="#475569" metalness={0.92} roughness={0.28} clearcoat={0.8} />
-      </mesh>
-      <mesh position={[0, 0, 1.6]}>
-        <sphereGeometry args={[0.55, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshBasicMaterial color="#22d3ee" transparent opacity={0.85} toneMapped={false} />
-      </mesh>
-      <mesh position={[0, -2.6, 0]}>
-        <coneGeometry args={[0.5, 1.2, 24]} />
-        <meshBasicMaterial color="#A78BFA" toneMapped={false} />
-      </mesh>
-      <pointLight position={[0, -3, 0]} color="#7C3AED" intensity={6} distance={8} />
-      <mesh position={[1.2, -0.6, 0]} rotation={[0, 0, -0.4]}>
-        <boxGeometry args={[1.6, 0.1, 0.6]} />
-        <meshPhysicalMaterial color="#334155" metalness={0.88} roughness={0.4} clearcoat={0.6} />
-      </mesh>
-      <mesh position={[-1.2, -0.6, 0]} rotation={[0, 0, 0.4]}>
-        <boxGeometry args={[1.6, 0.1, 0.6]} />
-        <meshPhysicalMaterial color="#334155" metalness={0.88} roughness={0.4} clearcoat={0.6} />
-      </mesh>
-    </group>
-  );
-}
-
-// ===========================================================================
-// Camera rig — pointer / touch / tilt parallax with rAF coalescing.
-// Calls invalidate() so frameloop="demand" wakes only when needed.
-// ===========================================================================
-function CameraRig({ tier, demand }: { tier: Tier; demand: boolean }) {
+function CameraRig({ tier }: { tier: Tier }) {
   const { camera } = useThree();
   const stage = useStore((s) => s.stage);
-  const targetPos = useRef(new THREE.Vector3(0, 6, 28));
-  const targetLook = useRef(new THREE.Vector3(0, 0, 0));
-  const pointer = useRef({ x: 0, y: 0 });
+  const targetLook = useRef(new THREE.Vector3(0, 0, -50));
+  const desired = useRef(new THREE.Vector3(0, 0, -50));
   const startTime = useRef<number | null>(null);
-  const settled = useRef(false);
+  const exteriorClock = useRef(0);
+  const wakeStop = useRef(0);
 
+  // Throttled pointer / touch / tilt → updates desired look-at vector only
   useEffect(() => {
     let raf = 0;
     let pendingX = 0;
     let pendingY = 0;
     const flush = () => {
-      pointer.current.x = pendingX;
-      pointer.current.y = pendingY;
+      const range = tier === 'mobile' ? 4 : 8;
+      desired.current.set(pendingX * range, -pendingY * (range / 2) + 1, -50);
       raf = 0;
-      settled.current = false;
-      if (demand) invalidate(); // wake render loop
+      // Wake the render loop for ~250ms after input
+      wakeStop.current = performance.now() + 250;
+      invalidate();
     };
-    const updateFromXY = (clientX: number, clientY: number) => {
-      pendingX = (clientX / window.innerWidth) * 2 - 1;
-      pendingY = (clientY / window.innerHeight) * 2 - 1;
+    const upd = (cx: number, cy: number) => {
+      pendingX = (cx / window.innerWidth) * 2 - 1;
+      pendingY = (cy / window.innerHeight) * 2 - 1;
       if (!raf) raf = requestAnimationFrame(flush);
     };
-    const onMouse = (e: MouseEvent) => updateFromXY(e.clientX, e.clientY);
-    const onTouch = (e: TouchEvent) => {
-      if (e.touches[0]) updateFromXY(e.touches[0].clientX, e.touches[0].clientY);
-    };
+    const onMouse = (e: MouseEvent) => upd(e.clientX, e.clientY);
+    const onTouch = (e: TouchEvent) => { if (e.touches[0]) upd(e.touches[0].clientX, e.touches[0].clientY); };
     const onTilt = (e: DeviceOrientationEvent) => {
       pendingX = Math.max(-1, Math.min(1, (e.gamma ?? 0) / 45));
       pendingY = Math.max(-1, Math.min(1, ((e.beta ?? 0) - 30) / 45));
@@ -206,57 +103,42 @@ function CameraRig({ tier, demand }: { tier: Tier; demand: boolean }) {
       window.removeEventListener('deviceorientation', onTilt);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [tier, demand]);
+  }, [tier]);
 
+  // Reset cinematic timer when stage changes; wake renderer
   useEffect(() => {
     startTime.current = null;
-    settled.current = false;
-    if (demand) invalidate();
-  }, [stage, demand]);
+    wakeStop.current = performance.now() + 1000;
+    invalidate();
+  }, [stage]);
 
   useFrame((state, dt) => {
     if (stage === 'exterior') {
-      const t = state.clock.elapsedTime * 0.15;
-      targetPos.current.set(Math.cos(t) * 14, 4 + Math.sin(t * 0.6) * 1.2, Math.sin(t) * 14);
-      targetLook.current.set(0, 0, 0);
-      // Always animating in exterior stage — don't settle
-      settled.current = false;
-    } else if (stage === 'flying-in') {
+      // Slow orbit around the Earth in preflight
+      exteriorClock.current += dt * 0.12;
+      const t = exteriorClock.current;
+      camera.position.set(Math.cos(t) * 16, 4 + Math.sin(t * 0.5) * 1.2, Math.sin(t) * 16);
+      camera.lookAt(0, 0, -50);
+      invalidate();
+      return;
+    }
+    if (stage === 'flying-in') {
       if (startTime.current === null) startTime.current = state.clock.elapsedTime;
       const elapsed = state.clock.elapsedTime - startTime.current;
-      const k = Math.min(1, elapsed / 2.2);
+      const k = Math.min(1, elapsed / 2.0);
       const eased = 1 - Math.pow(1 - k, 3);
-      const startVec = new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z);
-      const endVec = new THREE.Vector3(0, 0.5, 0);
-      targetPos.current.copy(startVec).lerp(endVec, eased);
-      targetLook.current.set(0, 1, -10);
-      if (k < 1) settled.current = false;
-    } else {
-      targetPos.current.set(0, 0.5, 0);
-      const range = tier === 'mobile' ? 4 : 8;
-      const lx = pointer.current.x * range;
-      const ly = -pointer.current.y * (range / 2) + 1;
-      targetLook.current.set(lx, ly, -12);
+      camera.position.lerp(new THREE.Vector3(0, 0.5, 0), eased * 0.15);
+      camera.lookAt(0, 0.5, -50);
+      if (k < 1) invalidate();
+      return;
     }
-
-    const prevPos = camera.position.clone();
-    camera.position.lerp(targetPos.current, Math.min(1, dt * 3));
-    const currentLook = new THREE.Vector3();
-    camera.getWorldDirection(currentLook);
-    const desiredLook = targetLook.current.clone().sub(camera.position).normalize();
-    const newLook = currentLook.lerp(desiredLook, Math.min(1, dt * 4)).normalize();
-    const lookTarget = camera.position.clone().add(newLook.multiplyScalar(20));
-    camera.lookAt(lookTarget);
-
-    // In demand mode: stop requesting frames once camera is essentially still.
-    if (demand) {
-      const moved = prevPos.distanceTo(camera.position) > 0.0008;
-      if (moved) {
-        settled.current = false;
-        invalidate();
-      } else {
-        settled.current = true;
-      }
+    // Cockpit (free look)
+    camera.position.set(0, 0.5, 0);
+    targetLook.current.lerp(desired.current, Math.min(1, dt * 4));
+    camera.lookAt(targetLook.current);
+    // Keep render alive briefly after input, then sleep
+    if (performance.now() < wakeStop.current) {
+      invalidate();
     }
   });
 
@@ -264,137 +146,146 @@ function CameraRig({ tier, demand }: { tier: Tier; demand: boolean }) {
 }
 
 // ===========================================================================
-// Earth that auto-orbits the Earth-Moon system slightly when active
+// Earth + Moon system — keeps a tiny per-frame rotation; the rotation lives
+// inside Earth.tsx itself and gates on `active`. Here we only mount.
 // ===========================================================================
-function EarthSystem({ tier, active, demand }: { tier: Tier; active: boolean; demand: boolean }) {
-  const groupRef = useRef<THREE.Group>(null!);
-  const earthPos: [number, number, number] = tier === 'mobile' ? [0, 0, -52] : [0, 0, -50];
-  const sunPos: [number, number, number] = [70, 28, -10];
-  const earthSize = tier === 'mobile' ? 7.5 : 9;
+function EarthSystem({ tier, active }: { tier: Tier; active: boolean }) {
+  const earthPos: [number, number, number] = [0, 0, -50];
+  const sunPos: [number, number, number] = [60, 22, -10];
+  const earthSize = tier === 'mobile' ? 7.5 : 9.5;
 
-  useFrame((_, dt) => {
-    if (!active || !groupRef.current) return;
-    groupRef.current.rotation.y += dt * 0.008; // slow drift
-    if (demand) invalidate();
-  });
+  // Drive a lazy ~12fps invalidation so Earth rotates in demand mode without
+  // hammering the GPU. Cleared when not active.
+  useEffect(() => {
+    if (!active) return;
+    const id = window.setInterval(() => invalidate(), 80);
+    return () => window.clearInterval(id);
+  }, [active]);
 
   return (
-    <group ref={groupRef}>
+    <>
       <Sun position={sunPos} />
       <Suspense fallback={null}>
         <Earth position={earthPos} size={earthSize} sunPosition={sunPos} active={active} />
-        <Moon earthPosition={earthPos} size={earthSize * 0.18} orbitRadius={earthSize * 2.1} active={active} />
+        <Moon earthPosition={earthPos} size={earthSize * 0.18} orbitRadius={earthSize * 2.4} active={active} />
       </Suspense>
-    </group>
+    </>
   );
 }
 
 // ===========================================================================
 // Scene contents
 // ===========================================================================
-function SceneContents({ tier, demand }: { tier: Tier; demand: boolean }) {
+function SceneContents({ tier }: { tier: Tier }) {
   const stage = useStore((s) => s.stage);
   const data = useStore((s) => s.data);
   const panelOpen = useStore((s) => s.panelOpen);
-  // Pause non-essential motion when the panel is fully covering Earth
-  const heavyAnimate = !(stage === 'cockpit' && !!data && panelOpen);
+  // Stop continuous orbit/rotation work when the dashboard is fully covering Earth
+  const heavy = !(stage === 'cockpit' && !!data && panelOpen);
 
-  // Tiered counts
-  const starsFar  = tier === 'mobile' ? 3000 : tier === 'tablet' ? 6500 : 10000;
-  const starsNear = tier === 'mobile' ?  900 : tier === 'tablet' ? 1800 :  2800;
+  // Tiered counts — kept low; Bloom does the heavy lifting visually
+  const starsFar  = tier === 'mobile' ? 1800 : tier === 'tablet' ? 3500 : 5500;
+  const starsNear = tier === 'mobile' ?  500 : tier === 'tablet' ? 1000 : 1600;
 
   return (
     <>
       <color attach="background" args={['#020410']} />
-      <fog attach="fog" args={['#020410', 90, 600]} />
 
-      {/* Soft ambient + cool fill so the night side of Earth isn't pitch black */}
-      <ambientLight intensity={0.06} color="#1E3A8A" />
-      <hemisphereLight args={['#22D3EE', '#020410', 0.18]} />
+      {/* Tiny ambient + cool fill so Earth's night side isn't pitch black */}
+      <ambientLight intensity={0.05} color="#1E3A8A" />
+      <hemisphereLight args={['#22D3EE', '#020410', 0.12]} />
 
-      <Stars radius={420} depth={160} count={starsFar} factor={5.5} saturation={0.35} fade speed={heavyAnimate ? 0.35 : 0} />
-      <Stars radius={140} depth={60}  count={starsNear} factor={3.0} saturation={0.0} fade speed={heavyAnimate ? 0.55 : 0} />
+      {/* Two starfield layers — fade is built-in to drei Stars */}
+      <Stars radius={400} depth={140} count={starsFar} factor={4.5} saturation={0.3} fade speed={heavy ? 0.25 : 0} />
+      <Stars radius={120} depth={50}  count={starsNear} factor={2.5} saturation={0}    fade speed={heavy ? 0.45 : 0} />
 
-      {/* Distant nebulae — pure additive billboards, very cheap */}
-      <mesh position={[-90, 30, -200]}>
-        <planeGeometry args={[180, 180]} />
-        <meshBasicMaterial color="#7C3AED" transparent opacity={0.16} depthWrite={false} blending={THREE.AdditiveBlending} />
-      </mesh>
-      <mesh position={[110, -40, -240]}>
-        <planeGeometry args={[200, 200]} />
-        <meshBasicMaterial color="#22D3EE" transparent opacity={0.13} depthWrite={false} blending={THREE.AdditiveBlending} />
-      </mesh>
+      <EarthSystem tier={tier} active={heavy} />
 
-      {/* Floating dust / small foreground stars (skip on mobile) */}
-      {tier !== 'mobile' && heavyAnimate && (
-        <Sparkles count={tier === 'desktop' ? 140 : 80} scale={[80, 40, 80]} size={2.6} speed={0.3} color="#9DD7FF" opacity={0.7} />
-      )}
+      <CameraRig tier={tier} />
 
-      <EarthSystem tier={tier} active={heavyAnimate} demand={demand} />
-
-      {heavyAnimate && (
-        <>
-          <Comet orbit={70} speed={0.12} offset={0} active={heavyAnimate} />
-          {tier !== 'mobile' && <Comet orbit={55} speed={0.18} offset={Math.PI} active={heavyAnimate} />}
-        </>
-      )}
-
-      <Starship visible={stage === 'exterior' || stage === 'flying-in'} />
-      {(stage === 'cockpit' || stage === 'flying-in') && <CockpitCanopy tier={tier} />}
-
-      <CameraRig tier={tier} demand={demand} />
-
+      {/* Single bloom pass — cheap and gives the photoreal rim glow */}
       <EffectComposer multisampling={tier === 'mobile' ? 0 : 2}>
-        <Bloom intensity={1.2} luminanceThreshold={0.35} luminanceSmoothing={0.5} mipmapBlur kernelSize={KernelSize.LARGE} />
-        <ChromaticAberration
-          blendFunction={BlendFunction.NORMAL}
-          offset={new THREE.Vector2(0.0006, 0.0006)}
-          radialModulation={false}
-          modulationOffset={0}
+        <Bloom
+          intensity={1.0}
+          luminanceThreshold={0.4}
+          luminanceSmoothing={0.6}
+          mipmapBlur
+          kernelSize={tier === 'mobile' ? KernelSize.MEDIUM : KernelSize.LARGE}
         />
-        <Noise opacity={tier === 'mobile' ? 0.02 : 0.035} blendFunction={BlendFunction.OVERLAY} />
-        <Vignette eskil={false} offset={0.15} darkness={0.9} />
       </EffectComposer>
     </>
   );
 }
 
 // ===========================================================================
-// Main Scene — switches frameloop to "demand" once cockpit is reached AND
-// dashboard panel is open. This is the main offload: the GPU stops rendering
-// entirely when the cosmos isn't changing, freeing CPU/GPU for the dashboard.
+// Error boundary — if WebGL crashes or shaders fail to compile, fall back to
+// a CSS cosmos so the app is still usable
+// ===========================================================================
+class WebGLErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error) {
+    // eslint-disable-next-line no-console
+    console.warn('[Scene] WebGL render failed, falling back to CSS cosmos:', error?.message);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          className="fixed inset-0 -z-10"
+          style={{
+            background:
+              'radial-gradient(ellipse at 30% 50%, rgba(34,211,238,0.12) 0%, transparent 50%),' +
+              'radial-gradient(ellipse at 70% 30%, rgba(124,58,237,0.18) 0%, transparent 55%),' +
+              '#020410',
+          }}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ===========================================================================
+// Main Scene — frameloop="demand" everywhere. Frames only render when
+// invalidate() is called: by camera animation, pointer input, or the
+// 80ms Earth-rotation tick.
 // ===========================================================================
 export default function Scene() {
   const tier = useDeviceTier();
   const stage = useStore((s) => s.stage);
   const panelOpen = useStore((s) => s.panelOpen);
 
-  // Demand mode kicks in only when nothing meaningful is animating
-  const demand = stage === 'cockpit' && panelOpen;
-
-  // Whenever stage/panel changes, prod the renderer
+  // Wake renderer whenever scene state changes
   useEffect(() => { invalidate(); }, [stage, panelOpen]);
 
   const fov = tier === 'mobile' ? 72 : tier === 'tablet' ? 68 : 65;
-  const dprMax = tier === 'mobile' ? 1.25 : tier === 'tablet' ? 1.6 : 2;
+  const dprMax = tier === 'mobile' ? 1.0 : tier === 'tablet' ? 1.4 : 1.75;
 
   return (
-    <Canvas
-      gl={{ antialias: tier !== 'mobile', alpha: false, powerPreference: 'high-performance' }}
-      dpr={[1, dprMax]}
-      camera={{ position: [0, 6, 28], fov, near: 0.1, far: 2500 }}
-      frameloop={demand ? 'demand' : 'always'}
-      onCreated={({ gl }) => {
-        gl.toneMapping = THREE.ACESFilmicToneMapping;
-        gl.toneMappingExposure = 1.05;
-      }}
-    >
-      <PerformanceMonitor onDecline={() => { /* AdaptiveDpr handles downscale */ }} />
-      <AdaptiveDpr pixelated />
-      <AdaptiveEvents />
-      <Suspense fallback={null}>
-        <SceneContents tier={tier} demand={demand} />
-      </Suspense>
-    </Canvas>
+    <WebGLErrorBoundary>
+      <Canvas
+        gl={{
+          antialias: tier !== 'mobile',
+          alpha: false,
+          powerPreference: 'high-performance',
+          stencil: false,
+          depth: true,
+        }}
+        dpr={[1, dprMax]}
+        camera={{ position: [0, 4, 18], fov, near: 0.1, far: 2000 }}
+        frameloop="demand"
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.05;
+        }}
+      >
+        <AdaptiveDpr pixelated />
+        <AdaptiveEvents />
+        <Suspense fallback={null}>
+          <SceneContents tier={tier} />
+        </Suspense>
+      </Canvas>
+    </WebGLErrorBoundary>
   );
 }
