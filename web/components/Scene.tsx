@@ -7,8 +7,7 @@ import { KernelSize } from 'postprocessing';
 import { Suspense, useRef, useEffect, useState, Component, ReactNode } from 'react';
 import * as THREE from 'three';
 import { useStore } from '@/lib/store';
-import Earth from './Earth';
-import Moon from './Moon';
+import Nebula from './Nebula';
 
 // ===========================================================================
 // Device tier detection
@@ -32,53 +31,24 @@ function useDeviceTier(): Tier {
 }
 
 // ===========================================================================
-// Sun — bright sphere off-camera that creates rim lighting on Earth
-// ===========================================================================
-function Sun({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <mesh>
-        <sphereGeometry args={[3.2, 32, 32]} />
-        <meshBasicMaterial color="#FFF7E0" toneMapped={false} />
-      </mesh>
-      {/* Soft glow shell */}
-      <mesh scale={1.8}>
-        <sphereGeometry args={[3.2, 24, 24]} />
-        <meshBasicMaterial
-          color="#FDE68A"
-          transparent
-          opacity={0.18}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-      <directionalLight color="#FFFAF0" intensity={2.6} position={[0, 0, 0]} target-position={[0, 0, -50]} />
-    </group>
-  );
-}
-
-// ===========================================================================
-// Camera rig — pointer parallax (rAF-throttled), invalidates on demand only
+// Camera rig — pointer parallax (rAF-throttled), invalidates on demand only.
+// Camera lives at the origin since the nebula surrounds it; we only rotate
+// the look direction so the player feels embedded inside the explosion remnant.
 // ===========================================================================
 function CameraRig({ tier }: { tier: Tier }) {
   const { camera } = useThree();
   const stage = useStore((s) => s.stage);
-  const targetLook = useRef(new THREE.Vector3(0, 0, -50));
-  const desired = useRef(new THREE.Vector3(0, 0, -50));
-  const startTime = useRef<number | null>(null);
-  const exteriorClock = useRef(0);
+  const desired = useRef(new THREE.Vector2(0, 0));
+  const current = useRef(new THREE.Vector2(0, 0));
   const wakeStop = useRef(0);
 
-  // Throttled pointer / touch / tilt → updates desired look-at vector only
   useEffect(() => {
     let raf = 0;
     let pendingX = 0;
     let pendingY = 0;
     const flush = () => {
-      const range = tier === 'mobile' ? 4 : 8;
-      desired.current.set(pendingX * range, -pendingY * (range / 2) + 1, -50);
+      desired.current.set(pendingX, pendingY);
       raf = 0;
-      // Wake the render loop for ~250ms after input
       wakeStop.current = performance.now() + 250;
       invalidate();
     };
@@ -105,39 +75,29 @@ function CameraRig({ tier }: { tier: Tier }) {
     };
   }, [tier]);
 
-  // Reset cinematic timer when stage changes; wake renderer
   useEffect(() => {
-    startTime.current = null;
-    wakeStop.current = performance.now() + 1000;
+    wakeStop.current = performance.now() + 1200;
     invalidate();
   }, [stage]);
 
   useFrame((state, dt) => {
-    if (stage === 'exterior') {
-      // Slow orbit around the Earth in preflight
-      exteriorClock.current += dt * 0.12;
-      const t = exteriorClock.current;
-      camera.position.set(Math.cos(t) * 16, 4 + Math.sin(t * 0.5) * 1.2, Math.sin(t) * 16);
-      camera.lookAt(0, 0, -50);
-      invalidate();
-      return;
-    }
-    if (stage === 'flying-in') {
-      if (startTime.current === null) startTime.current = state.clock.elapsedTime;
-      const elapsed = state.clock.elapsedTime - startTime.current;
-      const k = Math.min(1, elapsed / 2.0);
-      const eased = 1 - Math.pow(1 - k, 3);
-      camera.position.lerp(new THREE.Vector3(0, 0.5, 0), eased * 0.15);
-      camera.lookAt(0, 0.5, -50);
-      if (k < 1) invalidate();
-      return;
-    }
-    // Cockpit (free look)
-    camera.position.set(0, 0.5, 0);
-    targetLook.current.lerp(desired.current, Math.min(1, dt * 4));
-    camera.lookAt(targetLook.current);
-    // Keep render alive briefly after input, then sleep
-    if (performance.now() < wakeStop.current) {
+    current.current.lerp(desired.current, Math.min(1, dt * 4));
+
+    const range = tier === 'mobile' ? 0.35 : 0.55;
+    const drift = stage === 'exterior' ? state.clock.elapsedTime * 0.05 : 0;
+    const yaw   = current.current.x * range + Math.sin(drift) * 0.25;
+    const pitch = -current.current.y * (range * 0.55) + Math.cos(drift * 0.7) * 0.06;
+
+    const target = new THREE.Vector3(
+      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      -Math.cos(yaw) * Math.cos(pitch),
+    ).multiplyScalar(50);
+
+    camera.position.set(0, 0, 0);
+    camera.lookAt(target);
+
+    if (stage === 'exterior' || performance.now() < wakeStop.current) {
       invalidate();
     }
   });
@@ -146,69 +106,38 @@ function CameraRig({ tier }: { tier: Tier }) {
 }
 
 // ===========================================================================
-// Earth + Moon system — keeps a tiny per-frame rotation; the rotation lives
-// inside Earth.tsx itself and gates on `active`. Here we only mount.
-// ===========================================================================
-function EarthSystem({ tier, active }: { tier: Tier; active: boolean }) {
-  const earthPos: [number, number, number] = [0, 0, -50];
-  const sunPos: [number, number, number] = [60, 22, -10];
-  const earthSize = tier === 'mobile' ? 7.5 : 9.5;
-
-  // Drive a lazy ~12fps invalidation so Earth rotates in demand mode without
-  // hammering the GPU. Cleared when not active.
-  useEffect(() => {
-    if (!active) return;
-    const id = window.setInterval(() => invalidate(), 80);
-    return () => window.clearInterval(id);
-  }, [active]);
-
-  return (
-    <>
-      <Sun position={sunPos} />
-      <Suspense fallback={null}>
-        <Earth position={earthPos} size={earthSize} sunPosition={sunPos} active={active} />
-        <Moon earthPosition={earthPos} size={earthSize * 0.18} orbitRadius={earthSize * 2.4} active={active} />
-      </Suspense>
-    </>
-  );
-}
-
-// ===========================================================================
-// Scene contents
+// Scene contents — nebula + parallax star layers + bloom
 // ===========================================================================
 function SceneContents({ tier }: { tier: Tier }) {
   const stage = useStore((s) => s.stage);
   const data = useStore((s) => s.data);
   const panelOpen = useStore((s) => s.panelOpen);
-  // Stop continuous orbit/rotation work when the dashboard is fully covering Earth
+  // Stop continuous shader work when the dashboard fully covers the scene
   const heavy = !(stage === 'cockpit' && !!data && panelOpen);
 
-  // Tiered counts — kept low; Bloom does the heavy lifting visually
-  const starsFar  = tier === 'mobile' ? 1800 : tier === 'tablet' ? 3500 : 5500;
-  const starsNear = tier === 'mobile' ?  500 : tier === 'tablet' ? 1000 : 1600;
+  // Tiered star counts — kept low; bloom + nebula do the visual heavy lifting
+  const starsFar  = tier === 'mobile' ? 1500 : tier === 'tablet' ? 3000 : 4800;
+  const starsNear = tier === 'mobile' ?  400 : tier === 'tablet' ?  900 : 1400;
 
   return (
     <>
-      <color attach="background" args={['#020410']} />
+      <color attach="background" args={['#03061A']} />
 
-      {/* Tiny ambient + cool fill so Earth's night side isn't pitch black */}
-      <ambientLight intensity={0.05} color="#1E3A8A" />
-      <hemisphereLight args={['#22D3EE', '#020410', 0.12]} />
+      {/* Two starfield layers in front of the nebula for parallax depth */}
+      <Stars radius={300} depth={120} count={starsFar}  factor={4.2} saturation={0.25} fade speed={heavy ? 0.2 : 0} />
+      <Stars radius={90}  depth={40}  count={starsNear} factor={2.4} saturation={0}    fade speed={heavy ? 0.4 : 0} />
 
-      {/* Two starfield layers — fade is built-in to drei Stars */}
-      <Stars radius={400} depth={140} count={starsFar} factor={4.5} saturation={0.3} fade speed={heavy ? 0.25 : 0} />
-      <Stars radius={120} depth={50}  count={starsNear} factor={2.5} saturation={0}    fade speed={heavy ? 0.45 : 0} />
-
-      <EarthSystem tier={tier} active={heavy} />
+      {/* Procedural nebula — entire skybox is the explosion remnant */}
+      <Nebula active={heavy} />
 
       <CameraRig tier={tier} />
 
-      {/* Single bloom pass — cheap and gives the photoreal rim glow */}
+      {/* Single bloom pass — gives the white-hot epicentre its glow */}
       <EffectComposer multisampling={tier === 'mobile' ? 0 : 2}>
         <Bloom
-          intensity={1.0}
-          luminanceThreshold={0.4}
-          luminanceSmoothing={0.6}
+          intensity={1.15}
+          luminanceThreshold={0.55}
+          luminanceSmoothing={0.55}
           mipmapBlur
           kernelSize={tier === 'mobile' ? KernelSize.MEDIUM : KernelSize.LARGE}
         />
@@ -218,8 +147,7 @@ function SceneContents({ tier }: { tier: Tier }) {
 }
 
 // ===========================================================================
-// Error boundary — if WebGL crashes or shaders fail to compile, fall back to
-// a CSS cosmos so the app is still usable
+// Error boundary — if WebGL / shaders fail, fall back to a CSS cosmos
 // ===========================================================================
 class WebGLErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
@@ -235,9 +163,10 @@ class WebGLErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
           className="fixed inset-0 -z-10"
           style={{
             background:
-              'radial-gradient(ellipse at 30% 50%, rgba(34,211,238,0.12) 0%, transparent 50%),' +
-              'radial-gradient(ellipse at 70% 30%, rgba(124,58,237,0.18) 0%, transparent 55%),' +
-              '#020410',
+              'radial-gradient(ellipse at 50% 45%, rgba(255,180,220,0.35) 0%, transparent 30%),' +
+              'radial-gradient(ellipse at 30% 50%, rgba(34,211,238,0.18) 0%, transparent 50%),' +
+              'radial-gradient(ellipse at 70% 30%, rgba(255,79,176,0.22) 0%, transparent 55%),' +
+              '#03061A',
           }}
         />
       );
@@ -247,19 +176,17 @@ class WebGLErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
 }
 
 // ===========================================================================
-// Main Scene — frameloop="demand" everywhere. Frames only render when
-// invalidate() is called: by camera animation, pointer input, or the
-// 80ms Earth-rotation tick.
+// Main Scene — frameloop="demand". Frames render only when invalidate()
+// fires: from camera animation, pointer input, or the nebula time tick.
 // ===========================================================================
 export default function Scene() {
   const tier = useDeviceTier();
   const stage = useStore((s) => s.stage);
   const panelOpen = useStore((s) => s.panelOpen);
 
-  // Wake renderer whenever scene state changes
   useEffect(() => { invalidate(); }, [stage, panelOpen]);
 
-  const fov = tier === 'mobile' ? 72 : tier === 'tablet' ? 68 : 65;
+  const fov = tier === 'mobile' ? 78 : tier === 'tablet' ? 72 : 68;
   const dprMax = tier === 'mobile' ? 1.0 : tier === 'tablet' ? 1.4 : 1.75;
 
   return (
@@ -273,7 +200,7 @@ export default function Scene() {
           depth: true,
         }}
         dpr={[1, dprMax]}
-        camera={{ position: [0, 4, 18], fov, near: 0.1, far: 2000 }}
+        camera={{ position: [0, 0, 0], fov, near: 0.1, far: 2000 }}
         frameloop="demand"
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
