@@ -115,31 +115,30 @@ function SceneContents({ tier }: { tier: Tier }) {
   // Stop continuous shader work when the dashboard fully covers the scene
   const heavy = !(stage === 'cockpit' && !!data && panelOpen);
 
-  // Tiered star counts — kept low; bloom + nebula do the visual heavy lifting
-  const starsFar  = tier === 'mobile' ? 1500 : tier === 'tablet' ? 3000 : 4800;
-  const starsNear = tier === 'mobile' ?  400 : tier === 'tablet' ?  900 : 1400;
+  // Sparse drei star layer for genuine 3D parallax — the shader provides
+  // the dense pinpoint star field, so we keep this layer minimal.
+  const starsLayer = tier === 'mobile' ? 600 : tier === 'tablet' ? 1100 : 1600;
 
   return (
     <>
-      <color attach="background" args={['#03061A']} />
+      <color attach="background" args={['#02030C']} />
 
-      {/* Two starfield layers in front of the nebula for parallax depth */}
-      <Stars radius={300} depth={120} count={starsFar}  factor={4.2} saturation={0.25} fade speed={heavy ? 0.2 : 0} />
-      <Stars radius={90}  depth={40}  count={starsNear} factor={2.4} saturation={0}    fade speed={heavy ? 0.4 : 0} />
+      {/* Subtle point-star layer for parallax depth in front of the nebula */}
+      <Stars radius={180} depth={60} count={starsLayer} factor={2.2} saturation={0} fade speed={heavy ? 0.3 : 0} />
 
       {/* Procedural nebula — entire skybox is the explosion remnant */}
       <Nebula active={heavy} />
 
       <CameraRig tier={tier} />
 
-      {/* Single bloom pass — gives the white-hot epicentre its glow */}
+      {/* Bloom only on the rare bright stars — high threshold avoids blow-outs */}
       <EffectComposer multisampling={tier === 'mobile' ? 0 : 2}>
         <Bloom
-          intensity={1.15}
-          luminanceThreshold={0.55}
-          luminanceSmoothing={0.55}
+          intensity={0.45}
+          luminanceThreshold={0.92}
+          luminanceSmoothing={0.35}
           mipmapBlur
-          kernelSize={tier === 'mobile' ? KernelSize.MEDIUM : KernelSize.LARGE}
+          kernelSize={tier === 'mobile' ? KernelSize.SMALL : KernelSize.MEDIUM}
         />
       </EffectComposer>
     </>
@@ -187,7 +186,9 @@ export default function Scene() {
   useEffect(() => { invalidate(); }, [stage, panelOpen]);
 
   const fov = tier === 'mobile' ? 78 : tier === 'tablet' ? 72 : 68;
-  const dprMax = tier === 'mobile' ? 1.0 : tier === 'tablet' ? 1.4 : 1.75;
+  // Push DPR higher for sharper 4K-class detail — AdaptiveDpr will downscale
+  // automatically if the GPU can't keep up.
+  const dprMax = tier === 'mobile' ? 1.25 : tier === 'tablet' ? 1.75 : 2.0;
 
   return (
     <WebGLErrorBoundary>
@@ -204,7 +205,9 @@ export default function Scene() {
         frameloop="demand"
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.05;
+          // Lower exposure — keeps the nebula reading as deep space, not a
+          // light box. Bright stars still poke through cleanly via bloom.
+          gl.toneMappingExposure = 0.78;
         }}
       >
         <AdaptiveDpr pixelated />

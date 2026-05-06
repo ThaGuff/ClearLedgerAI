@@ -5,15 +5,14 @@ import { useFrame, invalidate } from '@react-three/fiber';
 import * as THREE from 'three';
 
 // ===========================================================================
-// Procedural nebula — supermassive black hole explosion remnant
-// Rendered as a large back-faced sphere (skybox-style) so it fills every
-// pixel of the camera frustum regardless of look direction.
+// Procedural deep-space nebula — supermassive black hole explosion remnant
+// Reference look: Hubble deep-field / Pillars of Creation / Veil Nebula —
+// mostly dark void with structured filaments, stars dominate, no blow-outs.
 // ===========================================================================
 
 const vert = /* glsl */ `
   varying vec3 vDir;
   void main() {
-    // Pass world-space direction from origin (camera centre) to fragment.
     vec4 wp = modelMatrix * vec4(position, 1.0);
     vDir = normalize(wp.xyz);
     gl_Position = projectionMatrix * viewMatrix * wp;
@@ -24,12 +23,8 @@ const frag = /* glsl */ `
   precision highp float;
   varying vec3 vDir;
   uniform float uTime;
-  uniform vec3  uEpi;     // direction of the explosion epicentre
-  uniform vec3  uTintA;   // hot inner colour
-  uniform vec3  uTintB;   // mid filament colour
-  uniform vec3  uTintC;   // cool outer colour
 
-  // Cheap value noise + FBM in 3D — good enough for a wispy nebula.
+  // ---------- Cheap value noise + 6-octave FBM ----------
   float hash(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123); }
 
   float noise(vec3 p){
@@ -45,82 +40,122 @@ const frag = /* glsl */ `
 
   float fbm(vec3 p){
     float v = 0.0, a = 0.5;
-    for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; }
+    for (int i = 0; i < 6; i++) {
+      v += a * noise(p);
+      p = p * 2.07 + vec3(0.13, 0.71, 1.24);
+      a *= 0.5;
+    }
     return v;
   }
 
+  // Domain-warped FBM — produces swirling filamentary dust lanes
+  float swirl(vec3 p){
+    vec3 q = vec3(
+      fbm(p + vec3(0.00, 0.00, 0.00)),
+      fbm(p + vec3(5.20, 1.30, 9.20)),
+      fbm(p + vec3(8.70, 3.70, 2.80))
+    );
+    return fbm(p + 1.6 * q);
+  }
+
+  // ---------- Sparse 3D star sparkles ----------
+  // Returns 0..1 brightness for a tiny pinpoint at a hashed cell centre.
+  float starField(vec3 d, float scale, float threshold){
+    vec3 c = floor(d * scale);
+    float h = hash(c);
+    if (h < threshold) return 0.0;
+    vec3 f = fract(d * scale) - 0.5;
+    float r = length(f);
+    float bri = (h - threshold) / (1.0 - threshold);
+    return smoothstep(0.06, 0.0, r) * bri;
+  }
+
   void main() {
-    vec3 d   = normalize(vDir);
-    vec3 epi = normalize(uEpi);
+    vec3 d = normalize(vDir);
 
-    // Angular distance from epicentre (0 at centre → ~2 on opposite side)
-    float ang = 1.0 - dot(d, epi);
+    // ---------- Sample filament density at two scales ----------
+    float t = uTime * 0.012;
+    vec3 p = d * 2.6 + vec3(t, -t * 0.5, t * 0.3);
+    float coarse = swirl(p);
+    float fine   = fbm(p * 5.5);
+    float density = coarse * 0.72 + fine * 0.28;
 
-    // Slow swirl of the fbm sample point
-    float t = uTime * 0.025;
-    vec3 p1 = d * 2.4  + vec3( t, -t * 0.6,  t * 0.4);
-    vec3 p2 = d * 5.2  + vec3(-t * 0.7, t,  -t * 0.5) + fbm(p1);
-    vec3 p3 = d * 11.0 + vec3( t * 0.3, t * 0.2, t * 0.8);
+    // Sharpen + threshold so most of the sky is true dark void.
+    // Anything below 0.42 becomes empty space; anything above 0.78
+    // is a bright filament. Smoothstep keeps soft edges.
+    density = smoothstep(0.42, 0.78, density);
+    density = pow(density, 1.35);
 
-    float bigDust   = fbm(p1);
-    float midDust   = fbm(p2);
-    float fineDust  = noise(p3);
+    // ---------- Photo-realistic nebula colour ramp ----------
+    // Inspired by Hubble narrowband palettes: void → indigo → magenta dust →
+    // warm hydrogen-alpha → soft pink ionised core. Brightness stays in the
+    // 0.0–0.7 range — we let bloom on the rare bright stars do the punch.
+    vec3 voidCol = vec3(0.005, 0.008, 0.022);   // near-black with cool tint
+    vec3 deepCol = vec3(0.040, 0.025, 0.110);   // indigo gas
+    vec3 dustCol = vec3(0.32,  0.10,  0.34);    // magenta dust lane
+    vec3 warmCol = vec3(0.55,  0.28,  0.22);    // warm hydrogen
+    vec3 hotCol  = vec3(0.85,  0.55,  0.62);    // pink ionised — soft, NOT white
 
-    // Combined "cloud density"
-    float dust = pow(0.55 * bigDust + 0.35 * midDust + 0.15 * fineDust, 1.7);
+    vec3 col = voidCol;
+    col = mix(col, deepCol, smoothstep(0.00, 0.25, density));
+    col = mix(col, dustCol, smoothstep(0.25, 0.55, density));
+    col = mix(col, warmCol, smoothstep(0.55, 0.80, density));
+    col = mix(col, hotCol,  smoothstep(0.80, 0.97, density));
 
-    // Radial brightness: hot near epicentre, falling off with angle
-    float core   = exp(-ang * 5.5);                                  // white-hot remnant
-    float shock  = exp(-pow((ang - 0.45) * 3.2, 2.0));               // shockwave ring
-    float halo   = exp(-ang * 1.2);                                  // wide outer glow
+    // Density-driven brightness modulation — most of frame stays dim.
+    col *= 0.32 + density * 0.55;
 
-    // Hot accretion-core colour (white → orange) tinted by uTintA
-    vec3 hot = mix(vec3(1.0, 0.95, 0.85), uTintA, 0.4);
+    // ---------- Subtle cyan-blue ambient haze in the voids ----------
+    col += vec3(0.012, 0.020, 0.040) * (1.0 - density);
 
-    // Build colour from cool background → mid filaments → shock → core
-    vec3 col = uTintC * 0.18;                       // deep ambient void
-    col += uTintB * dust * halo * 1.05;             // wide colourful gas
-    col += mix(uTintA, uTintB, dust) * shock * dust * 1.6; // ring filaments
-    col += hot * core * 1.6;                        // bright epicentre
-    col += hot * pow(core, 3.0) * 3.5;              // hyper-bright pinpoint (bloom-eligible)
+    // ---------- Stars: three layers of pinpoint detail ----------
+    // Tiny background stars — very dense field, very faint
+    float s1 = starField(d, 360.0, 0.992);
+    col += vec3(0.85, 0.88, 1.00) * s1 * 0.55;
 
-    // Star sparkle field — sparse but bright, derived from cell hash
-    vec3 sc = floor(d * 320.0);
-    float s = hash(sc);
-    float star = smoothstep(0.9965, 1.0, s);
-    col += vec3(star) * 1.4;
+    // Mid-distance white stars
+    float s2 = starField(d, 140.0, 0.996);
+    col += vec3(1.0, 0.96, 0.88) * s2 * 1.1;
 
-    // Subtle vignette toward the anti-epicentre so the eye is drawn in
-    col *= 1.0 - smoothstep(1.4, 2.0, ang) * 0.55;
+    // Rare close bright stars with colour temperature variation
+    vec3 cb = floor(d * 60.0);
+    float s3h = hash(cb + vec3(7.0, 3.0, 1.0));
+    if (s3h > 0.9985) {
+      vec3 fp = fract(d * 60.0) - 0.5;
+      float r = length(fp);
+      float bri = (s3h - 0.9985) / 0.0015;
+      // colour by another hash — blue, white, or amber
+      float cHash = hash(cb + vec3(11.0, 5.0, 2.0));
+      vec3 starCol = cHash < 0.33 ? vec3(0.7, 0.85, 1.0)
+                  : cHash < 0.67 ? vec3(1.0, 0.97, 0.92)
+                                 : vec3(1.0, 0.78, 0.55);
+      col += starCol * smoothstep(0.05, 0.0, r) * bri * 1.6;
+    }
 
-    gl_FragColor = vec4(col, 1.0);
+    // ---------- Slight film grain (deterministic, per-fragment) ----------
+    float grain = (hash(d * 4096.0 + uTime) - 0.5) * 0.012;
+    col += grain;
+
+    gl_FragColor = vec4(max(col, 0.0), 1.0);
   }
 `;
 
 interface NebulaProps {
-  /** Slow internal rotation of the whole sphere — adds gentle motion */
+  /** Slow internal rotation of the entire skybox sphere */
   rotationSpeed?: number;
-  /** Whether per-frame time advance + invalidate ticks fire */
+  /** When false, skip uTime advance + invalidate (saves GPU during dashboard) */
   active?: boolean;
 }
 
 export default function Nebula({
-  rotationSpeed = 0.005,
+  rotationSpeed = 0.004,
   active = true,
 }: NebulaProps) {
   const groupRef = useRef<THREE.Group>(null!);
   const startRef = useRef<number>(performance.now() / 1000);
 
   const mat = useMemo(() => new THREE.ShaderMaterial({
-    uniforms: {
-      uTime:  { value: 0.0 },
-      // Explosion epicentre roughly forward + slightly up — feels framed
-      uEpi:   { value: new THREE.Vector3(0.05, 0.15, -1.0).normalize() },
-      // Plasma palette — magenta core, electric cyan filaments, indigo void
-      uTintA: { value: new THREE.Color('#FF4FB0') },     // hot pink
-      uTintB: { value: new THREE.Color('#22D3EE') },     // cyan
-      uTintC: { value: new THREE.Color('#0B0E2A') },     // deep indigo void
-    },
+    uniforms: { uTime: { value: 0.0 } },
     vertexShader: vert,
     fragmentShader: frag,
     side: THREE.BackSide,
@@ -139,9 +174,7 @@ export default function Nebula({
   return (
     <group ref={groupRef}>
       <mesh material={mat} renderOrder={-10}>
-        {/* Large enough to sit beyond all foreground geometry, segments low
-            because every fragment is shaded procedurally — the geometry
-            cost is irrelevant. */}
+        {/* Geometry cost is irrelevant — every fragment is shaded procedurally. */}
         <sphereGeometry args={[600, 48, 32]} />
       </mesh>
     </group>
